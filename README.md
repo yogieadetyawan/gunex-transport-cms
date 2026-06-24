@@ -79,6 +79,20 @@ Endpoint upload gambar (`POST /api/upload`, butuh login admin) juga tersedia
 bila ingin dikembangkan lebih lanjut menjadi fitur "ganti logo/gambar" di
 dashboard.
 
+## Catatan soal warning "MemoryStore is not designed for production"
+
+Saat server start, mungkin muncul warning seperti ini di log:
+
+```
+Warning: connect.session() MemoryStore is not
+designed for a production environment...
+```
+
+**Ini bukan error dan bisa diabaikan** untuk skala penggunaan website ini
+(1 admin, traffic tidak tinggi). Warning ini hanya relevan jika ada ribuan
+pengguna aktif bersamaan, yang butuh session store eksternal seperti Redis.
+Untuk company profile dengan 1 akun admin, ini aman digunakan apa adanya.
+
 ## Deploy ke hosting
 
 Aplikasi ini adalah aplikasi **Node.js**, bukan file HTML statis biasa —
