@@ -1,6 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const bcrypt = require('bcryptjs');
+const EMBEDDED_DEFAULT_CONTENT = require('./default-content');
 
 const DATA_DIR = path.join(__dirname, '..', 'data');
 const CONTENT_FILE = path.join(DATA_DIR, 'content.json');
@@ -16,15 +17,25 @@ function ensureDataDir() {
   }
 }
 
+// Ambil JSON konten default: prioritas dari file data/content.default.json jika ada
+// (memungkinkan admin menimpa "default" sendiri di masa depan), tapi jika file itu
+// tidak ada/hilang (misal folder data/ ditimpa Volume kosong), pakai konten lengkap
+// yang sudah ditanam langsung di kode (server/default-content.js) sebagai jaminan.
+function getDefaultContentRaw() {
+  if (fs.existsSync(DEFAULT_FILE)) {
+    try {
+      return fs.readFileSync(DEFAULT_FILE, 'utf-8');
+    } catch (e) {
+      // lanjut ke fallback di bawah
+    }
+  }
+  return JSON.stringify(EMBEDDED_DEFAULT_CONTENT, null, 2);
+}
+
 function ensureContentFile() {
   ensureDataDir();
   if (!fs.existsSync(CONTENT_FILE)) {
-    // Jika content.default.json juga tidak ada (mis. volume kosong menimpa folder data),
-    // fallback ke struktur minimal agar server tetap bisa jalan.
-    const def = fs.existsSync(DEFAULT_FILE)
-      ? fs.readFileSync(DEFAULT_FILE, 'utf-8')
-      : JSON.stringify(MINIMAL_CONTENT, null, 2);
-    fs.writeFileSync(CONTENT_FILE, def, 'utf-8');
+    fs.writeFileSync(CONTENT_FILE, getDefaultContentRaw(), 'utf-8');
   }
 }
 
@@ -39,19 +50,6 @@ function ensureUsersFile() {
     console.log('[seed] users.json tidak ditemukan, dibuat ulang dengan akun default:', DEFAULT_USERNAME);
   }
 }
-
-const MINIMAL_CONTENT = {
-  brand: { companyName: 'PT. Gunex Transport Indonesia', shortName: 'GUNEX TRANSPORT', tagline: '' },
-  hero: { eyebrow: '', headline: '', headlineAccent: '', lead: '', ctaPrimary: '', ctaSecondary: '', stats: [] },
-  about: { kicker: '', headline: '', lede: '', paragraphs: [], profile: [] },
-  services: { kicker: '', headline: '', lede: '', items: [] },
-  fleet: { kicker: '', headline: '', lede: '', items: [], totalUnit: '0' },
-  flow: { kicker: '', headline: '', lede: '', steps: [] },
-  coverage: { kicker: '', headline: '', lede: '', areas: [] },
-  clients: { kicker: '', headline: '', lede: '', items: [] },
-  contact: { kicker: '', headline: '', lede: '', address: '', addressNote: '', phone: '', email: '', hours: '' },
-  footer: { text: '' }
-};
 
 function readContent() {
   ensureContentFile();
@@ -68,11 +66,9 @@ function writeContent(obj) {
 
 function resetContent() {
   ensureDataDir();
-  const def = fs.existsSync(DEFAULT_FILE)
-    ? fs.readFileSync(DEFAULT_FILE, 'utf-8')
-    : JSON.stringify(MINIMAL_CONTENT, null, 2);
-  fs.writeFileSync(CONTENT_FILE, def, 'utf-8');
-  return JSON.parse(def);
+  const raw = getDefaultContentRaw();
+  fs.writeFileSync(CONTENT_FILE, raw, 'utf-8');
+  return JSON.parse(raw);
 }
 
 function readUsers() {
