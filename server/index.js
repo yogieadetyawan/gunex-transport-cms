@@ -1,5 +1,6 @@
 const express = require('express');
 const session = require('express-session');
+const helmet = require('helmet');
 const path = require('path');
 const crypto = require('crypto');
 const fs = require('fs');
@@ -12,6 +13,9 @@ const EMBEDDED_DEFAULT_CONTENT = require('./default-content');
 const app = express();
 const PORT = process.env.PORT || 3000;
 const SESSION_SECRET = process.env.SESSION_SECRET || crypto.randomBytes(32).toString('hex');
+if (!process.env.SESSION_SECRET) {
+  console.warn('[peringatan] SESSION_SECRET belum diset di environment variable. Server tetap berjalan dengan kunci acak, tapi semua sesi login akan ter-reset setiap kali server di-restart/redeploy. Disarankan set SESSION_SECRET di Railway > Variables.');
+}
 
 // --- Self-healing check ---
 // Jika data/content.json sudah ada tapi isinya kosong/rusak (misal karena pernah
@@ -42,6 +46,36 @@ function healContentIfEmpty() {
 }
 healContentIfEmpty();
 
+// --- Security headers (Helmet) ---
+// Catatan konfigurasi penting (jangan dihapus sembarangan, ini sengaja disesuaikan):
+// - frameAncestors 'self' (bukan default yang lebih ketat) karena halaman publik (/)
+//   SENGAJA dimuat di dalam <iframe> oleh /admin untuk fitur pratinjau langsung saat
+//   admin mengetik. Tanpa pengecualian ini, fitur pratinjau akan gagal total karena
+//   browser memblokir iframe lintas-konteks meskipun masih origin yang sama.
+// - styleSrc/fontSrc mengizinkan Google Fonts karena halaman publik & admin memuat
+//   font Oswald/Work Sans/JetBrains Mono dari fonts.googleapis.com & fonts.gstatic.com.
+// - 'unsafe-inline' pada styleSrc dibutuhkan karena banyak elemen pakai inline style
+//   (style="...") untuk layout dinamis; ini hanya membuka inline STYLE, bukan inline
+//   SCRIPT, jadi tidak membuka celah XSS lewat <script> karena scriptSrc tetap 'self'.
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'"],
+      styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
+      fontSrc: ["'self'", 'https://fonts.gstatic.com'],
+      imgSrc: ["'self'", 'data:'],
+      connectSrc: ["'self'"],
+      frameAncestors: ["'self'"],
+      frameSrc: ["'self'"],
+      objectSrc: ["'none'"],
+      baseUri: ["'self'"],
+      formAction: ["'self'"]
+    }
+  },
+  crossOriginEmbedderPolicy: false // dimatikan agar tidak memblokir iframe pratinjau & Google Fonts
+}));
+
 app.use(express.json({ limit: '2mb' }));
 app.use(session({
   secret: SESSION_SECRET,
@@ -49,6 +83,8 @@ app.use(session({
   saveUninitialized: false,
   cookie: {
     httpOnly: true,
+    sameSite: 'lax',
+    secure: process.env.NODE_ENV === 'production',
     maxAge: 1000 * 60 * 60 * 8 // 8 jam
   }
 }));

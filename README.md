@@ -103,12 +103,49 @@ Pilihan yang cocok:
 - **VPS (DigitalOcean, dsb)** — install Node.js, copy folder, jalankan dengan `pm2` atau `systemd` agar tetap hidup setelah server restart
 - Pastikan environment variable `PORT` disesuaikan jika hosting mewajibkan port tertentu
 
-### Variabel environment opsional
+### Variabel environment
 
 ```
 PORT=3000                  # port server (default 3000)
-SESSION_SECRET=teks-acak   # kunci rahasia session, disarankan diisi manual saat produksi
+SESSION_SECRET=teks-acak   # WAJIB diisi manual saat produksi, lihat penjelasan di bawah
 ```
+
+**Tentang `SESSION_SECRET` — penting untuk keamanan:**
+Jika variabel ini tidak diset, server akan tetap berjalan dengan kunci acak
+otomatis, tapi kunci itu **berubah setiap kali server di-restart atau
+di-redeploy** — artinya semua orang yang sedang login akan otomatis
+ter-logout setiap deploy ulang. Untuk produksi (termasuk di Railway), set
+nilai ini secara manual:
+
+1. Buat teks acak yang panjang dan sulit ditebak (minimal 32 karakter), contoh
+   cara membuatnya di terminal: `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`
+2. Di Railway: buka service → tab **Variables** → tambahkan `SESSION_SECRET` dengan nilai tersebut.
+3. Jangan bagikan nilai ini ke siapa pun atau commit ke GitHub.
+
+## Keamanan
+
+Aplikasi ini sudah dilengkapi sejumlah perlindungan dasar:
+
+- **Password** disimpan ter-hash dengan bcrypt, tidak pernah dalam bentuk teks asli.
+- **Rate limiting login**: maksimal 8 percobaan gagal per 10 menit per alamat
+  IP, mencegah serangan brute-force/coba-coba password otomatis.
+- **Validasi struktur data ketat** pada API penyimpanan konten — mencegah
+  data yang rusak atau tidak lengkap tersimpan dan merusak tampilan publik.
+- **HTTP security headers** (lewat Helmet): Content-Security-Policy,
+  Strict-Transport-Security, X-Content-Type-Options, X-Frame-Options, dan
+  beberapa lainnya — sudah disesuaikan agar tidak mengganggu fitur pratinjau
+  langsung di admin panel.
+- **Proteksi XSS**: semua teks yang diisi admin di-escape sebelum ditampilkan
+  ke publik, sehingga karakter seperti `<script>` tidak akan pernah
+  dieksekusi sebagai kode oleh browser pengunjung.
+- **Session aman**: cookie sesi memakai `httpOnly` (tidak bisa diakses lewat
+  JavaScript) dan `sameSite=lax` (proteksi dasar dari CSRF), serta
+  di-regenerasi setiap login berhasil (mencegah session fixation).
+- **Validasi upload gambar**: hanya menerima file berformat gambar
+  (PNG/JPG/WEBP/SVG), maksimal 5MB.
+
+Jika ada yang ingin melaporkan temuan keamanan, silakan tinjau langsung kode
+di folder `server/` — semuanya open dan bisa diaudit ulang sewaktu-waktu.
 
 ## Struktur folder
 
