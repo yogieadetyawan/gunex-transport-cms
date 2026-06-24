@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Admin — Gunex Transport CMS</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=Work+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/admin-styles.css">
+</head>
+<body>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="gunex-mark" viewBox="0 0 64 64">
+    <rect x="2" y="2" width="60" height="60" rx="14" fill="#1d3d87"/>
+    <line x1="7" y1="27" x2="17" y2="27" stroke="#fff" stroke-width="2.6" stroke-linecap="round"/>
+    <line x1="5" y1="34" x2="15" y2="34" stroke="#fff" stroke-width="2.6" stroke-linecap="round"/>
+    <line x1="8" y1="41" x2="16" y2="41" stroke="#fff" stroke-width="2.6" stroke-linecap="round"/>
+    <rect x="18" y="22" width="21" height="19" rx="2.5" fill="#fff"/>
+    <path d="M39 28 h8 l6 6 v7 h-14 z" fill="#fff"/>
+    <rect x="44" y="30" width="6" height="5" rx="1" fill="#1d3d87"/>
+    <circle cx="25" cy="45" r="4.2" fill="#fff" stroke="#1d3d87" stroke-width="2.2"/>
+    <circle cx="46" cy="45" r="4.2" fill="#fff" stroke="#1d3d87" stroke-width="2.2"/>
+  </symbol>
+</svg>
+
+<!-- LOGIN SCREEN -->
+<div class="login-wrap" id="loginScreen">
+  <div class="login-card">
+    <div class="login-logo">
+      <svg class="logo-icon"><use href="#gunex-mark"/></svg>
+      <span class="logo-word"><span>GUNEX</span><span>TRANSPORT</span></span>
+    </div>
+    <h1>Masuk ke Admin Panel</h1>
+    <p class="sub">Kelola seluruh konten company profile PT. Gunex Transport Indonesia.</p>
+    <div class="login-error" id="loginError"></div>
+    <form id="loginForm">
+      <div class="field">
+        <label>Username</label>
+        <input type="text" id="username" autocomplete="username" required>
+      </div>
+      <div class="field">
+        <label>Password</label>
+        <input type="password" id="password" autocomplete="current-password" required>
+      </div>
+      <button type="submit" class="btn btn-primary" id="loginBtn">Masuk</button>
+    </form>
+    <div class="login-hint">
+      Akun default: <b>admin</b> / <b>gunex2008admin</b><br>
+      Segera ganti password setelah login pertama lewat menu "Ganti Password".
+    </div>
+  </div>
+</div>
+
+<!-- ADMIN SHELL -->
+<div class="admin-shell" id="adminShell">
+  <aside class="sidebar">
+    <div class="sidebar-brand">
+      <svg class="logo-icon"><use href="#gunex-mark"/></svg>
+      <span class="logo-word"><span style="display:block">GUNEX</span><span style="display:block">ADMIN</span></span>
+    </div>
+    <nav id="sideNav">
+      <button class="nav-item active" data-panel="hero"><span class="dot"></span>Hero / Beranda</button>
+      <button class="nav-item" data-panel="about"><span class="dot"></span>Tentang Kami</button>
+      <button class="nav-item" data-panel="services"><span class="dot"></span>Layanan</button>
+      <button class="nav-item" data-panel="fleet"><span class="dot"></span>Armada</button>
+      <button class="nav-item" data-panel="flow"><span class="dot"></span>Alur Kerja Sama</button>
+      <button class="nav-item" data-panel="coverage"><span class="dot"></span>Wilayah Layanan</button>
+      <button class="nav-item" data-panel="clients"><span class="dot"></span>Klien</button>
+      <button class="nav-item" data-panel="contact"><span class="dot"></span>Kontak</button>
+      <button class="nav-item" data-panel="footer"><span class="dot"></span>Footer</button>
+      <button class="nav-item" data-panel="account"><span class="dot"></span>Akun Admin</button>
+    </nav>
+    <div class="sidebar-foot">
+      <a href="/" target="_blank" class="preview-link" style="color:#c5d8f2">↗ Lihat Website</a>
+      <button id="logoutBtn">Keluar</button>
+    </div>
+  </aside>
+
+  <div class="main-area">
+    <div class="topbar">
+      <div>
+        <h2 id="topbarTitle">Hero / Beranda</h2>
+        <div class="meta">Masuk sebagai <b id="meUsername">admin</b></div>
+      </div>
+      <div class="topbar-actions">
+        <span class="save-status" id="saveStatus">Tersimpan ✓</span>
+        <button class="btn btn-secondary" id="resetBtn">Reset ke Default</button>
+        <button class="btn btn-save" id="saveBtn">Simpan Perubahan</button>
+      </div>
+    </div>
+
+    <div class="content-area">
+
+      <!-- HERO -->
+      <section class="panel active" data-panel="hero">
+        <div class="panel-card">
+          <h3>Teks Hero</h3>
+          <div class="field-grid">
+            <div class="f"><label>Eyebrow (teks kecil di atas judul)</label><input data-bind="hero.eyebrow"></div>
+            <div class="field-grid two">
+              <div class="f"><label>Judul Utama</label><input data-bind="hero.headline"></div>
+              <div class="f"><label>Judul Aksen (warna terang)</label><input data-bind="hero.headlineAccent"></div>
+            </div>
+            <div class="f"><label>Deskripsi (Lead)</label><textarea data-bind="hero.lead"></textarea></div>
+            <div class="field-grid two">
+              <div class="f"><label>Teks Tombol Utama</label><input data-bind="hero.ctaPrimary"></div>
+              <div class="f"><label>Teks Tombol Kedua</label><input data-bind="hero.ctaSecondary"></div>
+            </div>
+          </div>
+        </div>
+        <div class="panel-card">
+          <h3>Statistik (4 kotak angka)</h3>
+          <div id="heroStatsList"></div>
+        </div>
+      </section>
+
+      <!-- ABOUT -->
+      <section class="panel" data-panel="about">
+        <div class="panel-card">
+          <h3>Judul Section</h3>
+          <div class="field-grid">
+            <div class="f"><label>Kicker (label KM)</label><input data-bind="about.kicker"></div>
+            <div class="f"><label>Judul</label><input data-bind="about.headline"></div>
+            <div class="f"><label>Subjudul (Lede)</label><textarea data-bind="about.lede"></textarea></div>
+          </div>
+        </div>
+        <div class="panel-card">
+          <h3>Paragraf Cerita Perusahaan</h3>
+          <div id="aboutParagraphsList"></div>
+        </div>
+        <div class="panel-card">
+          <h3>Tabel Profil Singkat</h3>
+          <div id="aboutProfileList"></div>
+        </div>
+      </section>
+
+      <!-- SERVICES -->
+      <section class="panel" data-panel="services">
+        <div class="panel-card">
+          <h3>Judul Section</h3>
+          <div class="field-grid">
+            <div class="f"><label>Kicker</label><input data-bind="services.kicker"></div>
+            <div class="f"><label>Judul</label><input data-bind="services.headline"></div>
+            <div class="f"><label>Subjudul</label><textarea data-bind="services.lede"></textarea></div>
+          </div>
+        </div>
+        <div class="panel-card">
+          <h3>Daftar Layanan</h3>
+          <div id="servicesList"></div>
+        </div>
+      </section>
+
+      <!-- FLEET -->
+      <section class="panel" data-panel="fleet">
+        <div class="panel-card">
+          <h3>Judul Section</h3>
+          <div class="field-grid">
+            <div class="f"><label>Kicker</label><input data-bind="fleet.kicker"></div>
+            <div class="f"><label>Judul</label><input data-bind="fleet.headline"></div>
+            <div class="f"><label>Subjudul</label><textarea data-bind="fleet.lede"></textarea></div>
+            <div class="f"><label>Total Unit Armada</label><input data-bind="fleet.totalUnit" style="max-width:160px"></div>
+          </div>
+        </div>
+        <div class="panel-card">
+          <h3>Tipe Armada</h3>
+          <div id="fleetList"></div>
+        </div>
+      </section>
+
+      <!-- FLOW -->
+      <section class="panel" data-panel="flow">
+        <div class="panel-card">
+          <h3>Judul Section</h3>
+          <div class="field-grid">
+            <div class="f"><label>Kicker</label><input data-bind="flow.kicker"></div>
+            <div class="f"><label>Judul</label><input data-bind="flow.headline"></div>
+            <div class="f"><label>Subjudul</label><textarea data-bind="flow.lede"></textarea></div>
+          </div>
+        </div>
+        <div class="panel-card">
+          <h3>Langkah Alur Kerja Sama</h3>
+          <div id="flowList"></div>
+        </div>
+      </section>
+
+      <!-- COVERAGE -->
+      <section class="panel" data-panel="coverage">
+        <div class="panel-card">
+          <h3>Judul Section</h3>
+          <div class="field-grid">
+            <div class="f"><label>Kicker</label><input data-bind="coverage.kicker"></div>
+            <div class="f"><label>Judul</label><input data-bind="coverage.headline"></div>
+            <div class="f"><label>Subjudul</label><textarea data-bind="coverage.lede"></textarea></div>
+          </div>
+        </div>
+        <div class="panel-card">
+          <h3>Wilayah &amp; Posisi Pin di Peta</h3>
+          <p style="font-size:.78rem;color:var(--mute);margin-bottom:14px;">Koordinat X/Y dalam persen (%) posisi pin di atas gambar peta. Geser nilai untuk mengetes posisi, lalu lihat hasilnya di halaman website.</p>
+          <div id="coverageList"></div>
+        </div>
+      </section>
+
+      <!-- CLIENTS -->
+      <section class="panel" data-panel="clients">
+        <div class="panel-card">
+          <h3>Judul Section</h3>
+          <div class="field-grid">
+            <div class="f"><label>Kicker</label><input data-bind="clients.kicker"></div>
+            <div class="f"><label>Judul</label><input data-bind="clients.headline"></div>
+            <div class="f"><label>Subjudul</label><textarea data-bind="clients.lede"></textarea></div>
+          </div>
+        </div>
+        <div class="panel-card">
+          <h3>Daftar Klien</h3>
+          <div id="clientsList"></div>
+        </div>
+      </section>
+
+      <!-- CONTACT -->
+      <section class="panel" data-panel="contact">
+        <div class="panel-card">
+          <h3>Konten Kontak</h3>
+          <div class="field-grid">
+            <div class="f"><label>Kicker</label><input data-bind="contact.kicker"></div>
+            <div class="f"><label>Judul</label><input data-bind="contact.headline"></div>
+            <div class="f"><label>Subjudul</label><textarea data-bind="contact.lede"></textarea></div>
+            <div class="f"><label>Alamat Kantor</label><input data-bind="contact.address"></div>
+            <div class="f"><label>Catatan Alamat (placeholder kecil)</label><input data-bind="contact.addressNote"></div>
+            <div class="field-grid two">
+              <div class="f"><label>Telepon / WhatsApp</label><input data-bind="contact.phone"></div>
+              <div class="f"><label>Email</label><input data-bind="contact.email"></div>
+            </div>
+            <div class="f"><label>Jam Operasional</label><input data-bind="contact.hours"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- FOOTER -->
+      <section class="panel" data-panel="footer">
+        <div class="panel-card">
+          <h3>Teks Footer</h3>
+          <div class="f"><label>Teks Copyright</label><input data-bind="footer.text"></div>
+        </div>
+      </section>
+
+      <!-- ACCOUNT -->
+      <section class="panel" data-panel="account">
+        <div class="panel-card">
+          <h3>Ganti Password</h3>
+          <div class="field-grid" style="max-width:380px">
+            <div class="f"><label>Password Lama</label><input type="password" id="curPass"></div>
+            <div class="f"><label>Password Baru (min. 6 karakter)</label><input type="password" id="newPass"></div>
+            <button class="btn btn-save" id="changePassBtn" style="margin-top:6px;width:fit-content;">Ganti Password</button>
+            <div id="passMsg" style="font-size:.82rem;margin-top:4px;"></div>
+          </div>
+        </div>
+      </section>
+
+    </div>
+  </div>
+</div>
+
+<!-- RESET CONFIRM MODAL -->
+<div class="modal-overlay" id="resetModal">
+  <div class="modal-box">
+    <h3>Reset ke Konten Default?</h3>
+    <p>Semua perubahan yang sudah dibuat akan diganti kembali ke konten bawaan. Tindakan ini tidak bisa dibatalkan.</p>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" id="cancelReset">Batal</button>
+      <button class="btn" style="background:var(--danger);color:#fff" id="confirmReset">Ya, Reset</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="/admin.js"></script>
+</body>
+</html>
