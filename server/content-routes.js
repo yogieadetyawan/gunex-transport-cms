@@ -4,6 +4,7 @@ const path = require('path');
 const fs = require('fs');
 const { readContent, writeContent, resetContent } = require('./db');
 const { requireAuth } = require('./auth');
+const EMBEDDED_DEFAULT_CONTENT = require('./default-content');
 
 const router = express.Router();
 
@@ -28,6 +29,24 @@ const upload = multer({
   }
 });
 
+// Helper: true hanya untuk plain object ({...}), false untuk array/null/string/number/dst.
+function isPlainObject(val) {
+  return typeof val === 'object' && val !== null && !Array.isArray(val);
+}
+
+// Validasi struktur top-level konten: harus punya semua section yang dikenal,
+// dan tiap section harus berupa plain object. Ini mencegah penyimpanan struktur
+// rusak/parsial yang akan membuat halaman publik gagal render atau jadi kosong.
+const REQUIRED_SECTIONS = ['brand', 'hero', 'about', 'services', 'fleet', 'flow', 'coverage', 'clients', 'contact', 'footer'];
+function validateFullContent(incoming) {
+  if (!isPlainObject(incoming)) return 'Data konten harus berupa objek, bukan ' + (Array.isArray(incoming) ? 'daftar/array' : typeof incoming) + '.';
+  for (const key of REQUIRED_SECTIONS) {
+    if (!(key in incoming)) return `Bagian "${key}" tidak ada di data yang dikirim.`;
+    if (!isPlainObject(incoming[key])) return `Bagian "${key}" harus berupa objek.`;
+  }
+  return null; // valid
+}
+
 // Publik: ambil semua konten
 router.get('/content', (req, res) => {
   try {
@@ -41,8 +60,9 @@ router.get('/content', (req, res) => {
 // Admin: simpan seluruh konten (full replace, datang dari editor)
 router.put('/content', requireAuth, (req, res) => {
   const incoming = req.body && req.body.content;
-  if (!incoming || typeof incoming !== 'object') {
-    return res.status(400).json({ ok: false, error: 'Data konten tidak valid.' });
+  const error = validateFullContent(incoming);
+  if (error) {
+    return res.status(400).json({ ok: false, error });
   }
   try {
     writeContent(incoming);
@@ -56,8 +76,11 @@ router.put('/content', requireAuth, (req, res) => {
 router.patch('/content/:section', requireAuth, (req, res) => {
   const { section } = req.params;
   const data = req.body && req.body.data;
-  if (!data || typeof data !== 'object') {
-    return res.status(400).json({ ok: false, error: 'Data tidak valid.' });
+  if (!isPlainObject(data)) {
+    return res.status(400).json({ ok: false, error: 'Data section harus berupa objek, bukan ' + (Array.isArray(data) ? 'daftar/array' : typeof data) + '.' });
+  }
+  if (!REQUIRED_SECTIONS.includes(section)) {
+    return res.status(404).json({ ok: false, error: `Section "${section}" tidak dikenal.` });
   }
   try {
     const content = readContent();

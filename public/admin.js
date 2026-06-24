@@ -126,6 +126,22 @@
     const data = await res.json();
     if (!data.ok) { showToast('Gagal memuat isi website.', true); return; }
     content = data.content;
+
+    // Jika ada draft tersimpan dari sesi yang habis sebelumnya, tawarkan untuk dipulihkan.
+    try {
+      const draft = localStorage.getItem('gunex_admin_draft_backup');
+      if (draft) {
+        const draftContent = JSON.parse(draft);
+        const wantsRestore = confirm('Ditemukan perubahan yang belum tersimpan dari sesi sebelumnya. Pulihkan perubahan tersebut sekarang?');
+        if (wantsRestore) {
+          content = draftContent;
+          markDirty();
+          showToast('Perubahan sebelumnya berhasil dipulihkan. Jangan lupa klik Simpan.');
+        }
+        localStorage.removeItem('gunex_admin_draft_backup');
+      }
+    } catch (e) { /* draft korup, abaikan saja */ }
+
     renderSection(currentSection);
   }
 
@@ -466,7 +482,10 @@
   }
 
   // ---------- Save / Reset ----------
+  let isSaving = false;
   $('#saveBtn').addEventListener('click', async () => {
+    if (isSaving) return;
+    isSaving = true;
     const btn = $('#saveBtn');
     btn.disabled = true;
     btn.textContent = 'Menyimpan...';
@@ -476,6 +495,15 @@
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ content })
       });
+      if (res.status === 401) {
+        try { localStorage.setItem('gunex_admin_draft_backup', JSON.stringify(content)); } catch (e2) { /* abaikan jika storage penuh */ }
+        showToast('Sesi Anda sudah habis. Perubahan disimpan sementara — silakan masuk lagi.', true);
+        btn.disabled = false;
+        btn.textContent = 'Simpan Perubahan';
+        isSaving = false;
+        setTimeout(() => location.reload(), 2200);
+        return;
+      }
       const data = await res.json();
       if (data.ok) {
         markSaved();
@@ -488,6 +516,7 @@
     }
     btn.disabled = false;
     btn.textContent = 'Simpan Perubahan';
+    isSaving = false;
   });
 
   async function doReset() {

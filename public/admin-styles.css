@@ -151,3 +151,11 @@ iframe#previewFrame{width:100%;border:none;display:block;background:#fff;}
   .section-divider{display:none;}
   .workspace{flex-direction:column;}
 }
+@media(max-width:680px){
+  .topbar{padding:10px 12px;flex-wrap:wrap;gap:8px;}
+  .topbar-left .logo-word{font-size:.7rem;}
+  .topbar-right{gap:6px;flex-wrap:wrap;}
+  .save-status{display:none;}
+  .btn-top{padding:9px 12px;font-size:.78rem;}
+  .mobile-preview-banner{flex-wrap:wrap;font-size:.78rem;padding:10px 14px;}
+}
