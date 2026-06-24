@@ -14,7 +14,13 @@ router.post('/login', (req, res) => {
   if (!username || !password) {
     return res.status(400).json({ ok: false, error: 'Username dan password wajib diisi.' });
   }
-  const user = readUsers();
+  let user;
+  try {
+    user = readUsers();
+  } catch (e) {
+    console.error('Gagal membaca users.json:', e);
+    return res.status(500).json({ ok: false, error: 'Gagal membaca data akun di server.' });
+  }
   if (!user || user.username !== username) {
     return res.status(401).json({ ok: false, error: 'Username atau password salah.' });
   }
