@@ -260,6 +260,26 @@
     if (pct >= 100) setTimeout(() => { if (loadingBar) loadingBar.style.opacity = '0'; }, 300);
   }
 
+  // ---------- Mode preview: dengarkan pesan dari admin panel ----------
+  // Jika halaman ini dibuka di dalam iframe oleh /admin, admin.js akan mengirim
+  // konten terbaru lewat postMessage setiap kali admin mengetik, supaya pratinjau
+  // berubah langsung tanpa perlu reload halaman atau panggil API berulang.
+  let isPreviewMode = false;
+  window.addEventListener('message', (e) => {
+    if (!e.data || e.data.type !== 'GUNEX_PREVIEW_UPDATE') return;
+    isPreviewMode = true;
+    try {
+      render(e.data.content);
+      // beri tahu parent tinggi konten saat ini supaya iframe bisa menyesuaikan
+      requestAnimationFrame(() => {
+        const h = document.body.scrollHeight;
+        window.parent.postMessage({ type: 'GUNEX_PREVIEW_HEIGHT', height: h }, '*');
+      });
+    } catch (err) {
+      // diamkan; render ulang berikutnya akan mencoba lagi
+    }
+  });
+
   async function init() {
     setLoading(30);
     try {
@@ -268,6 +288,10 @@
       const data = await res.json();
       if (data.ok) {
         render(data.content);
+        requestAnimationFrame(() => {
+          const h = document.body.scrollHeight;
+          window.parent.postMessage({ type: 'GUNEX_PREVIEW_HEIGHT', height: h }, '*');
+        });
       } else {
         app.innerHTML = '<div class="wrap" style="padding:140px 0;text-align:center;color:#5f7290;">Gagal memuat konten. Silakan refresh halaman.</div>';
       }
