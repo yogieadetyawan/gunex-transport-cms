@@ -23,11 +23,12 @@ input,textarea,select{font-family:inherit;}
 /* ===== Login screen ===== */
 .login-wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;background:linear-gradient(160deg,#102456,#1d3d87 55%,#2456b3);padding:24px;}
 .login-card{background:#fff;border-radius:14px;padding:40px 36px;max-width:380px;width:100%;box-shadow:0 30px 80px rgba(0,0,0,.35);}
-.login-logo{display:flex;align-items:center;gap:11px;margin-bottom:28px;}
+.login-logo{display:flex;align-items:center;gap:11px;margin-bottom:32px;}
+.sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;}
 .login-logo .logo-icon{width:40px;height:40px;}
 .login-logo .logo-word{font-weight:700;letter-spacing:.01em;transform:skewX(-7deg);color:var(--blue-deep);line-height:.95;}
 .login-logo .logo-word span{display:block;font-size:1rem;}
-.login-card h1{font-size:1.3rem;font-weight:600;margin-bottom:6px;color:var(--blue-deep);}
+.login-card h1{font-size:1.3rem;font-weight:600;margin-bottom:24px;color:var(--blue-deep);}
 .login-card p.sub{font-size:.9rem;color:var(--mute);margin-bottom:26px;line-height:1.5;}
 .field{margin-bottom:16px;}
 .field label{display:block;font-size:.85rem;color:var(--ink);margin-bottom:7px;font-weight:600;}
