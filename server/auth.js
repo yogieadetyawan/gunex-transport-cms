@@ -9,6 +9,14 @@ function requireAuth(req, res, next) {
   return res.status(401).json({ ok: false, error: 'Belum login.' });
 }
 
+// Middleware untuk halaman HTML (bukan API): jika belum login, redirect ke
+// halaman portal /admin (tempat form login berada) daripada mengembalikan JSON 401
+// yang tidak ada gunanya jika diakses langsung lewat browser/URL bar.
+function requireAuthPage(req, res, next) {
+  if (req.session && req.session.isAdmin) return next();
+  return res.redirect('/admin');
+}
+
 // --- Rate limiting sederhana untuk login (cegah brute force password) ---
 // Disimpan in-memory per-IP: maksimal 8 percobaan gagal per 10 menit,
 // setelah itu IP tersebut harus menunggu sebelum bisa mencoba lagi.
@@ -149,4 +157,4 @@ router.post('/change-password', requireAuth, (req, res) => {
   res.json({ ok: true });
 });
 
-module.exports = { router, requireAuth };
+module.exports = { router, requireAuth, requireAuthPage };

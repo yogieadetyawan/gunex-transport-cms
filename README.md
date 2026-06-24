@@ -1,19 +1,34 @@
-# Gunex Transport — Company Profile + Admin CMS
+# Gunex Transport — Portal Admin Internal
 
-Website company profile **PT. Gunex Transport Indonesia** dengan sistem admin
-berbasis login untuk mengedit seluruh konten (teks, statistik, daftar layanan,
-armada, wilayah, klien, kontak, dll) tanpa perlu mengubah kode.
+Portal admin terpadu untuk **PT. Gunex Transport Indonesia**, berisi tiga
+aplikasi yang bisa diakses setelah login satu kali:
+
+1. **Kelola Isi Company Profile** — edit teks, statistik, layanan, armada,
+   wilayah, klien, dan kontak yang tampil di website perusahaan.
+2. **Gunex Fleet** — pencatatan service, ban, pajak/KIR, oli, sopir, dan foto
+   kendaraan untuk seluruh armada.
+3. **PO Matcher** — pencocokan nomor surat jalan dari PO (PDF) dengan data
+   tagihan Excel secara otomatis (OCR berjalan offline di browser).
 
 ## Arsitektur
 
 - **Backend**: Node.js + Express
-- **Penyimpanan data**: file JSON (`data/content.json`) — tidak perlu instal database terpisah
-- **Autentikasi admin**: session + password ter-hash (bcrypt)
-- **Frontend publik**: HTML + JS murni, mengambil konten dari API (`/api/content`)
-- **Frontend admin**: dashboard editor di `/admin`
+- **Penyimpanan data company profile**: file JSON (`data/content.json`) — tidak perlu instal database terpisah
+- **Penyimpanan data Gunex Fleet & PO Matcher**: keduanya aplikasi standalone
+  yang menyimpan datanya sendiri di `localStorage` browser (tidak melalui
+  server ini) — sesuai cara kerja aslinya sebelum digabung ke portal.
+- **Autentikasi**: satu login admin (session + password ter-hash bcrypt)
+  berlaku untuk akses ke ketiga aplikasi.
+- **Frontend publik (website company profile)**: HTML + JS murni, mengambil
+  konten dari API (`/api/content`)
+- **Frontend admin**: portal menu di `/admin`, lalu masing-masing aplikasi di
+  `/admin/company-profile`, `/admin/gunex-fleet`, `/admin/po-matcher`
 
-Karena konten disimpan di server (bukan di browser), **semua pengunjung akan
-melihat hasil edit yang sama** begitu admin menyimpan perubahan.
+Karena konten company profile disimpan di server (bukan di browser), **semua
+pengunjung akan melihat hasil edit yang sama** begitu admin menyimpan
+perubahan. Sedangkan data Gunex Fleet dan PO Matcher tersimpan per-perangkat
+(localStorage) — jika dibuka dari komputer/browser berbeda, datanya tidak
+otomatis sama.
 
 ## Menjalankan di komputer/server sendiri
 
@@ -32,7 +47,7 @@ npm start
 
 Setelah berjalan:
 - Website publik: `http://localhost:3000`
-- Panel admin: `http://localhost:3000/admin`
+- Portal admin: `http://localhost:3000/admin`
 
 ## Login Admin (default)
 
@@ -41,8 +56,8 @@ Username : admin
 Password : gunex2008admin
 ```
 
-**Segera ganti password** setelah login pertama lewat menu *Akun Admin* di
-sidebar admin panel.
+**Segera ganti password** setelah login pertama lewat menu *Kata Sandi* di
+sidebar aplikasi "Kelola Isi Company Profile".
 
 ## Apa yang bisa diedit lewat Admin Panel
 
@@ -152,22 +167,47 @@ di folder `server/` — semuanya open dan bisa diaudit ulang sewaktu-waktu.
 ```
 gunex-app/
 ├── server/             # Backend Express
-│   ├── index.js        # Entry point
-│   ├── auth.js         # Login, logout, ganti password
-│   ├── content-routes.js  # API CRUD konten + upload gambar
-│   └── db.js           # Baca/tulis file JSON
-├── public/             # Frontend (publik + admin)
-│   ├── index.html      # Halaman publik
-│   ├── app.js           # Render konten dinamis dari API
-│   ├── styles.css
-│   ├── admin.html       # Dashboard admin
-│   ├── admin.js
-│   ├── admin-styles.css
+│   ├── index.js        # Entry point, routing portal & semua aplikasi
+│   ├── auth.js         # Login, logout, ganti password, rate limiting
+│   ├── content-routes.js  # API CRUD konten company profile + upload gambar
+│   ├── db.js           # Baca/tulis file JSON
+│   └── default-content.js # Konten default yang ditanam di kode (cadangan)
+├── public/             # Frontend yang BISA diakses langsung (statis)
+│   ├── index.html      # Halaman publik (website company profile)
+│   ├── app.js, styles.css
+│   ├── admin.html      # Portal menu admin (login + 3 kartu pilihan aplikasi)
+│   ├── admin.js, admin.css
+│   ├── admin-company-profile.html  # Editor company profile (live preview)
+│   ├── admin-company-profile.js, admin-company-profile.css
 │   ├── assets/          # Gambar statis (peta, dll)
 │   └── uploads/         # Gambar yang diupload lewat admin
+├── protected-apps/      # Aplikasi yang TIDAK BOLEH diakses langsung tanpa
+│   │                    # login — sengaja ditaruh di LUAR folder public/ agar
+│   │                    # tidak otomatis disajikan oleh static file server.
+│   │                    # Hanya bisa dibuka lewat /admin/gunex-fleet dan
+│   │                    # /admin/po-matcher yang diperiksa session loginnya.
+│   ├── gunex-fleet.html # Aplikasi pendataan armada (standalone, localStorage)
+│   └── po-matcher.html  # Aplikasi pencocokan PO vs tagihan (standalone, localStorage)
 ├── data/
 │   ├── content.json          # Data konten aktif (dibuat otomatis saat pertama jalan)
 │   ├── content.default.json  # Cadangan konten bawaan (untuk fitur reset)
 │   └── users.json            # Kredensial admin (password ter-hash)
 └── package.json
 ```
+
+## Catatan tentang dua aplikasi tambahan (Gunex Fleet & PO Matcher)
+
+Kedua aplikasi ini dibangun sebelumnya sebagai file HTML tunggal yang berdiri
+sendiri (memakai `localStorage` browser, tanpa server). Saat digabung ke
+portal ini, **isi/logic di dalamnya tidak diubah sama sekali** — hanya
+ditambahkan lapisan: (1) wajib login dulu sebelum bisa dibuka, dan (2)
+kebijakan keamanan browser (CSP) yang disesuaikan supaya skrip dan library
+CDN yang dipakainya tetap berfungsi seperti semula.
+
+Konsekuensinya:
+- Data yang diisi di Gunex Fleet / PO Matcher tersimpan di **browser yang
+  dipakai saat itu**, bukan di server. Membuka dari perangkat lain berarti
+  mulai dengan data kosong.
+- Jika ingin kedua aplikasi ini punya data terpusat (tersimpan di server,
+  bisa diakses dari mana saja seperti company profile), itu butuh
+  pengembangan lanjutan tersendiri — beri tahu jika ingin dibantu ke arah itu.

@@ -5,7 +5,7 @@ const path = require('path');
 const crypto = require('crypto');
 const fs = require('fs');
 
-const { router: authRouter } = require('./auth');
+const { router: authRouter, requireAuth, requireAuthPage } = require('./auth');
 const contentRouter = require('./content-routes');
 const { readContent, writeContent, resetContent, CONTENT_FILE } = require('./db');
 const EMBEDDED_DEFAULT_CONTENT = require('./default-content');
@@ -47,34 +47,60 @@ function healContentIfEmpty() {
 healContentIfEmpty();
 
 // --- Security headers (Helmet) ---
-// Catatan konfigurasi penting (jangan dihapus sembarangan, ini sengaja disesuaikan):
-// - frameAncestors 'self' (bukan default yang lebih ketat) karena halaman publik (/)
-//   SENGAJA dimuat di dalam <iframe> oleh /admin untuk fitur pratinjau langsung saat
-//   admin mengetik. Tanpa pengecualian ini, fitur pratinjau akan gagal total karena
-//   browser memblokir iframe lintas-konteks meskipun masih origin yang sama.
-// - styleSrc/fontSrc mengizinkan Google Fonts karena halaman publik & admin memuat
-//   font Oswald/Work Sans/JetBrains Mono dari fonts.googleapis.com & fonts.gstatic.com.
-// - 'unsafe-inline' pada styleSrc dibutuhkan karena banyak elemen pakai inline style
-//   (style="...") untuk layout dinamis; ini hanya membuka inline STYLE, bukan inline
-//   SCRIPT, jadi tidak membuka celah XSS lewat <script> karena scriptSrc tetap 'self'.
-app.use(helmet({
-  contentSecurityPolicy: {
-    directives: {
-      defaultSrc: ["'self'"],
-      scriptSrc: ["'self'"],
-      styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
-      fontSrc: ["'self'", 'https://fonts.gstatic.com'],
-      imgSrc: ["'self'", 'data:'],
-      connectSrc: ["'self'"],
-      frameAncestors: ["'self'"],
-      frameSrc: ["'self'"],
-      objectSrc: ["'none'"],
-      baseUri: ["'self'"],
-      formAction: ["'self'"]
-    }
-  },
-  crossOriginEmbedderPolicy: false // dimatikan agar tidak memblokir iframe pratinjau & Google Fonts
-}));
+// Helmet dipasang TANPA Content-Security-Policy bawaan di sini (contentSecurityPolicy: false),
+// karena kita butuh dua kebijakan CSP yang berbeda untuk dua kelompok halaman:
+//   1. Halaman utama (publik, editor company profile) -> CSP ketat, lihat cspStrict di bawah.
+//   2. Aplikasi legacy single-file (Gunex Fleet, PO Matcher) -> CSP lebih permisif,
+//      karena kedua file ini memakai inline <script>, inline onclick=, dan memuat
+//      library dari CDN (jspdf, dst) yang sudah dibangun sebelum proyek ini ada.
+//      Mengetatkan CSP di sana akan mematikan total fungsinya. Tetap diberi batas:
+//      hanya domain CDN yang benar-benar dipakai yang diizinkan, bukan "allow all".
+// Header keamanan LAIN dari Helmet (HSTS, X-Frame-Options, X-Content-Type-Options, dst)
+// tetap aktif untuk semua route lewat app.use(helmet(...)) di bawah.
+app.use(helmet({ contentSecurityPolicy: false, crossOriginEmbedderPolicy: false }));
+
+// CSP ketat: dipakai untuk halaman publik (/) dan editor company profile (/admin, /admin/company-profile).
+// - frameAncestors 'self' karena halaman publik SENGAJA dimuat di <iframe> oleh
+//   /admin/company-profile untuk fitur pratinjau langsung saat admin mengetik.
+// - styleSrc/fontSrc mengizinkan Google Fonts (Oswald/Work Sans/JetBrains Mono).
+// - 'unsafe-inline' pada styleSrc hanya membuka inline STYLE (style="..."), BUKAN
+//   inline SCRIPT — scriptSrc tetap 'self' sehingga celah XSS lewat <script> tertutup.
+const cspStrict = helmet.contentSecurityPolicy({
+  directives: {
+    defaultSrc: ["'self'"],
+    scriptSrc: ["'self'"],
+    styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
+    fontSrc: ["'self'", 'https://fonts.gstatic.com'],
+    imgSrc: ["'self'", 'data:'],
+    connectSrc: ["'self'"],
+    frameAncestors: ["'self'"],
+    frameSrc: ["'self'"],
+    objectSrc: ["'none'"],
+    baseUri: ["'self'"],
+    formAction: ["'self'"]
+  }
+});
+
+// CSP permisif: KHUSUS untuk /admin/gunex-fleet dan /admin/po-matcher (aplikasi legacy
+// single-file). Tetap dibatasi ke domain CDN yang benar-benar dipakai (cdnjs.cloudflare.com,
+// cdn.jsdelivr.net untuk library jsPDF/dsb), bukan wildcard sembarangan. frameAncestors/
+// formAction tetap 'self' karena tidak ada kebutuhan dimuat dari luar atau submit ke luar.
+const cspLegacyApps = helmet.contentSecurityPolicy({
+  directives: {
+    defaultSrc: ["'self'"],
+    scriptSrc: ["'self'", "'unsafe-inline'", 'https://cdnjs.cloudflare.com', 'https://cdn.jsdelivr.net'],
+    scriptSrcAttr: ["'unsafe-inline'"],
+    styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com', 'https://cdnjs.cloudflare.com'],
+    fontSrc: ["'self'", 'https://fonts.gstatic.com', 'data:'],
+    imgSrc: ["'self'", 'data:', 'blob:'],
+    workerSrc: ["'self'", 'blob:'],
+    connectSrc: ["'self'", 'blob:'],
+    frameAncestors: ["'self'"],
+    objectSrc: ["'none'"],
+    baseUri: ["'self'"],
+    formAction: ["'self'"]
+  }
+});
 
 app.use(express.json({ limit: '2mb' }));
 app.use(session({
@@ -96,15 +122,35 @@ app.use(express.static(path.join(__dirname, '..', 'public'), { index: false }));
 app.use('/api/auth', authRouter);
 app.use('/api', contentRouter);
 
-app.get('/admin', (req, res) => {
+// --- Portal admin & aplikasi internal ---
+// /admin            -> portal menu (berisi form login jika belum masuk)
+// /admin/company-profile -> editor company profile (aplikasi yang sudah ada sebelumnya)
+// /admin/gunex-fleet      -> aplikasi pendataan armada (standalone, single-file)
+// /admin/po-matcher       -> aplikasi pencocokan PO vs tagihan (standalone, single-file)
+// Ketiga aplikasi terakhir dilindungi requireAuthPage: jika belum login, browser
+// akan diarahkan balik ke /admin (bukan diberi error JSON, karena ini diakses
+// langsung lewat URL/browser, bukan lewat fetch()).
+app.get('/admin', cspStrict, (req, res) => {
   res.sendFile(path.join(__dirname, '..', 'public', 'admin.html'));
 });
 
-app.get('/', (req, res) => {
+app.get('/admin/company-profile', cspStrict, requireAuthPage, (req, res) => {
+  res.sendFile(path.join(__dirname, '..', 'public', 'admin-company-profile.html'));
+});
+
+app.get('/admin/gunex-fleet', cspLegacyApps, requireAuthPage, (req, res) => {
+  res.sendFile(path.join(__dirname, '..', 'protected-apps', 'gunex-fleet.html'));
+});
+
+app.get('/admin/po-matcher', cspLegacyApps, requireAuthPage, (req, res) => {
+  res.sendFile(path.join(__dirname, '..', 'protected-apps', 'po-matcher.html'));
+});
+
+app.get('/', cspStrict, (req, res) => {
   res.sendFile(path.join(__dirname, '..', 'public', 'index.html'));
 });
 
-app.get('*', (req, res) => {
+app.get('*', cspStrict, (req, res) => {
   if (req.path.startsWith('/api')) return res.status(404).json({ ok: false, error: 'Not found' });
   res.sendFile(path.join(__dirname, '..', 'public', 'index.html'));
 });
