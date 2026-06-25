@@ -56,8 +56,23 @@ function ensureUsersFile() {
 
 function readContent() {
   ensureContentFile();
-  const raw = fs.readFileSync(CONTENT_FILE, 'utf-8');
-  return JSON.parse(raw);
+  try {
+    const raw = fs.readFileSync(CONTENT_FILE, 'utf-8');
+    return JSON.parse(raw);
+  } catch (e) {
+    // File ada tapi isinya korup/tidak valid (misal proses lain menulis setengah jalan,
+    // atau penyimpanan diganggu di tengah operasi). Daripada membuat seluruh halaman
+    // publik error 500, kembalikan konten default dari memori SEKALIGUS perbaiki file
+    // di disk supaya kunjungan berikutnya juga sudah sehat tanpa perlu restart server.
+    console.error('[content] Gagal membaca content.json (file korup), memulihkan ke konten default:', e.message);
+    const raw = getDefaultContentRaw();
+    try {
+      fs.writeFileSync(CONTENT_FILE, raw, 'utf-8');
+    } catch (writeErr) {
+      console.error('[content] Gagal menulis ulang content.json saat pemulihan:', writeErr.message);
+    }
+    return JSON.parse(raw);
+  }
 }
 
 function writeContent(obj) {

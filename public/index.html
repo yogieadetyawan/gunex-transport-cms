@@ -57,9 +57,35 @@
       <li><a href="#wilayah">Wilayah</a></li>
       <li><a href="#klien">Klien</a></li>
     </ul></nav>
-    <a href="#kontak" class="nav-cta">Hubungi Kami</a>
+    <div class="nav-right">
+      <a href="#kontak" class="nav-cta">Hubungi Kami</a>
+      <button class="nav-toggle" id="navToggle" aria-label="Buka menu" aria-expanded="false">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+      </button>
+    </div>
   </div>
 </header>
+
+<div class="nav-overlay" id="navOverlay"></div>
+<div class="mobile-nav" id="mobileNav">
+  <div class="mobile-nav-head">
+    <span class="logo-lockup">
+      <svg class="logo-icon"><use href="#gunex-mark"/></svg>
+      <span class="logo-word"><span class="l1">GUNEX</span><span class="l2">TRANSPORT</span></span>
+    </span>
+    <button class="mobile-nav-close" id="navClose" aria-label="Tutup menu">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
+    </button>
+  </div>
+  <ul>
+    <li><a href="#tentang">Tentang</a></li>
+    <li><a href="#layanan">Layanan</a></li>
+    <li><a href="#armada">Armada</a></li>
+    <li><a href="#wilayah">Wilayah</a></li>
+    <li><a href="#klien">Klien</a></li>
+  </ul>
+  <a href="#kontak" class="nav-cta">Hubungi Kami</a>
+</div>
 
 <main id="app">
   <!-- Konten dirender otomatis oleh app.js dari /api/content -->

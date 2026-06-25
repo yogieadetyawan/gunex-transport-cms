@@ -313,6 +313,44 @@
   }
   initHeaderScrollState();
 
+  // ---------- Hamburger menu: navigasi mobile/tablet (di bawah 820px) ----------
+  // Sebelumnya layar sempit sama sekali tidak punya cara mengakses menu
+  // Tentang/Layanan/Armada/dst selain men-scroll manual sepanjang halaman.
+  function initMobileNav() {
+    const toggle = document.getElementById('navToggle');
+    const closeBtn = document.getElementById('navClose');
+    const panel = document.getElementById('mobileNav');
+    const overlay = document.getElementById('navOverlay');
+    if (!toggle || !panel || !overlay) return;
+
+    function openNav() {
+      panel.classList.add('open');
+      overlay.classList.add('open');
+      toggle.setAttribute('aria-expanded', 'true');
+      document.body.style.overflow = 'hidden';
+    }
+    function closeNav() {
+      panel.classList.remove('open');
+      overlay.classList.remove('open');
+      toggle.setAttribute('aria-expanded', 'false');
+      document.body.style.overflow = '';
+    }
+
+    toggle.addEventListener('click', openNav);
+    closeBtn.addEventListener('click', closeNav);
+    overlay.addEventListener('click', closeNav);
+    // Menutup otomatis saat salah satu link di panel diklik, supaya smooth
+    // scroll ke section tujuan tidak terhalang panel yang masih terbuka.
+    panel.querySelectorAll('a').forEach(a => a.addEventListener('click', closeNav));
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeNav(); });
+    // Jika layar diperbesar melewati breakpoint desktop saat panel masih
+    // terbuka (misal rotasi tablet), tutup otomatis supaya tidak nyangkut.
+    window.addEventListener('resize', () => {
+      if (window.innerWidth >= 820) closeNav();
+    });
+  }
+  initMobileNav();
+
   // ---------- Mode preview: dengarkan pesan dari admin panel ----------
   // Jika halaman ini dibuka di dalam iframe oleh /admin, admin.js akan mengirim
   // konten terbaru lewat postMessage setiap kali admin mengetik, supaya pratinjau

@@ -97,7 +97,13 @@ const cspStrict = helmet.contentSecurityPolicy({
 const cspLegacyApps = helmet.contentSecurityPolicy({
   directives: {
     defaultSrc: ["'self'"],
-    scriptSrc: ["'self'", "'unsafe-inline'", 'https://cdnjs.cloudflare.com', 'https://cdn.jsdelivr.net'],
+    // 'wasm-unsafe-eval' (BUKAN 'unsafe-eval' biasa) khusus dibutuhkan oleh mesin
+    // OCR Tesseract.js di PO Matcher, yang meng-compile modul WebAssembly secara
+    // dinamis di browser untuk membaca teks dari PDF. Tanpa ini, OCR gagal total
+    // dengan error "Refused to compile or instantiate WebAssembly module" — sudah
+    // dikonfirmasi lewat tes nyata (proses PDF macet/error tanpa direktif ini).
+    // Ini TIDAK mengizinkan eval() JavaScript biasa, hanya WebAssembly secara khusus.
+    scriptSrc: ["'self'", "'unsafe-inline'", "'wasm-unsafe-eval'", 'https://cdnjs.cloudflare.com', 'https://cdn.jsdelivr.net'],
     scriptSrcAttr: ["'unsafe-inline'"],
     styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com', 'https://cdnjs.cloudflare.com'],
     fontSrc: ["'self'", 'https://fonts.gstatic.com', 'data:'],

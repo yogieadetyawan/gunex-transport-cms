@@ -79,6 +79,7 @@ body{
   position:sticky; top:0; z-index:50;
   padding: calc(14px + var(--safe-top)) 18px 14px;
   background: linear-gradient(180deg, rgba(2,8,23,0.97), rgba(2,8,23,0.88));
+  -webkit-backdrop-filter: blur(10px);
   backdrop-filter: blur(10px);
   border-bottom:1px solid var(--line);
   display:flex; align-items:center; justify-content:space-between; gap:12px;
@@ -111,6 +112,7 @@ body{
   display:flex; gap:1px;
   padding: 8px 6px calc(8px + var(--safe-bottom));
   background: linear-gradient(0deg, rgba(2,8,23,0.97), rgba(2,8,23,0.9));
+  -webkit-backdrop-filter: blur(10px);
   backdrop-filter: blur(10px);
   border-top:1px solid var(--line);
   margin-top:auto;
@@ -316,6 +318,7 @@ select{
 /* ---------- modal / sheet ---------- */
 .sheet-overlay{
   position:fixed; inset:0; z-index:100; background: rgba(2,8,23,0.7);
+  -webkit-backdrop-filter: blur(3px);
   backdrop-filter: blur(3px); display:none; align-items:flex-end; justify-content:center;
 }
 .sheet-overlay.active{ display:flex; animation: fadeIn .2s ease; }
@@ -702,7 +705,7 @@ function updateSyncIndicator(){
   if (!el) {
     el = document.createElement('div');
     el.id = 'syncIndicator';
-    el.style.cssText = 'position:fixed;top:10px;right:10px;z-index:200;font-size:11px;font-weight:600;padding:6px 12px;border-radius:20px;display:none;align-items:center;gap:6px;backdrop-filter:blur(6px);transition:opacity .2s;';
+    el.style.cssText = 'position:fixed;top:10px;right:10px;z-index:200;font-size:11px;font-weight:600;padding:6px 12px;border-radius:20px;display:none;align-items:center;gap:6px;-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);transition:opacity .2s;';
     document.body.appendChild(el);
   }
   if (hasUnsyncedChanges) {
@@ -1359,7 +1362,7 @@ function openVehicleDetail(id){
   const html = sheetWrap(v.plate, `
     ${v.photoUrl ? `<div style="position:relative; margin-bottom:16px;">
       <img src="${v.photoUrl}" onclick="viewPhotoFullscreen('${v.id}','photo')" style="width:100%; max-height:220px; object-fit:cover; border-radius:12px; border:1px solid var(--line); cursor:pointer; display:block;">
-      <button type="button" onclick="downloadPhoto('${v.photoUrl.replace(/'/g,"\\'")}', '${v.plate}-foto-kendaraan')" title="Download foto" style="position:absolute; bottom:9px; right:9px; width:34px; height:34px; border-radius:50%; background:rgba(2,8,23,0.75); backdrop-filter:blur(4px); border:1px solid var(--line); color:var(--accent); cursor:pointer; display:flex; align-items:center; justify-content:center; padding:0;">
+      <button type="button" onclick="downloadPhoto('${v.photoUrl.replace(/'/g,"\\'")}', '${v.plate}-foto-kendaraan')" title="Download foto" style="position:absolute; bottom:9px; right:9px; width:34px; height:34px; border-radius:50%; background:rgba(2,8,23,0.75); -webkit-backdrop-filter:blur(4px); backdrop-filter:blur(4px); border:1px solid var(--line); color:var(--accent); cursor:pointer; display:flex; align-items:center; justify-content:center; padding:0;">
         <svg viewBox="0 0 24 24" fill="none" style="width:17px;height:17px;"><path d="M12 3v12m0 0l-4-4m4 4l4-4M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
       </button>
     </div>` : ''}
@@ -1376,7 +1379,7 @@ function openVehicleDetail(id){
       <div class="field-label" style="margin-bottom:8px;">Barcode Pertamina</div>
       <div style="position:relative; display:inline-block;">
         <img src="${v.pertaminaPhotoUrl}" onclick="viewPhotoFullscreen('${v.id}','pertaminaPhoto')" style="max-width:200px; max-height:200px; border-radius:10px; border:1px solid var(--line); cursor:pointer; display:block;">
-        <button type="button" onclick="downloadPhoto('${v.pertaminaPhotoUrl.replace(/'/g,"\\'")}', '${v.plate}-barcode-pertamina')" title="Download foto" style="position:absolute; bottom:9px; right:9px; width:34px; height:34px; border-radius:50%; background:rgba(2,8,23,0.75); backdrop-filter:blur(4px); border:1px solid var(--line); color:var(--accent); cursor:pointer; display:flex; align-items:center; justify-content:center; padding:0;">
+        <button type="button" onclick="downloadPhoto('${v.pertaminaPhotoUrl.replace(/'/g,"\\'")}', '${v.plate}-barcode-pertamina')" title="Download foto" style="position:absolute; bottom:9px; right:9px; width:34px; height:34px; border-radius:50%; background:rgba(2,8,23,0.75); -webkit-backdrop-filter:blur(4px); backdrop-filter:blur(4px); border:1px solid var(--line); color:var(--accent); cursor:pointer; display:flex; align-items:center; justify-content:center; padding:0;">
           <svg viewBox="0 0 24 24" fill="none" style="width:17px;height:17px;"><path d="M12 3v12m0 0l-4-4m4 4l4-4M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
         </button>
       </div>
