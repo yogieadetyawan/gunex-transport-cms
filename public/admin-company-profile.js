@@ -120,7 +120,7 @@
     clients: { title: 'Daftar Klien', desc: 'Nama-nama perusahaan yang menjadi pelanggan Anda.' },
     contact: { title: 'Kontak', desc: 'Informasi supaya calon klien bisa menghubungi Anda.' },
     footer: { title: 'Footer', desc: 'Teks kecil di bagian paling bawah halaman.' },
-    account: { title: 'Kata Sandi', desc: 'Ganti kata sandi untuk masuk ke halaman kelola ini.' }
+    account: { title: 'Akun Login', desc: 'Ganti nama pengguna dan kata sandi untuk masuk ke halaman kelola ini.' }
   };
 
   function paneHeader(key) {
@@ -151,7 +151,18 @@
 
   function renderSection(key) {
     const pane = $('#editPane');
-    if (key === 'account') { pane.innerHTML = renderAccount(); return; }
+    if (key === 'account') {
+      pane.innerHTML = renderAccount();
+      // Tampilkan username yang sedang aktif sebagai placeholder, supaya admin
+      // tidak perlu menebak/membuka tab lain untuk tahu nama pengguna saat ini.
+      fetch('/api/auth/me').then(r => r.json()).then(data => {
+        if (data.ok && data.loggedIn && data.username) {
+          const el = $('#newUsername');
+          if (el) el.placeholder = `Saat ini: ${data.username}`;
+        }
+      }).catch(() => {});
+      return;
+    }
     if (!content) { pane.innerHTML = paneHeader(key); return; }
 
     const renderers = {
@@ -258,12 +269,23 @@
     return `
       ${paneHeader('account')}
       <div class="simple-field">
+        <label>Nama Pengguna Baru</label>
+        <input type="text" id="newUsername" autocomplete="username" placeholder="3-32 karakter: huruf, angka, titik, atau garis bawah">
+      </div>
+      <div class="simple-field">
+        <label>Kata Sandi (untuk konfirmasi)</label>
+        <input type="password" id="curPassForUsername" autocomplete="current-password">
+      </div>
+      <button class="btn-top primary" id="changeUsernameBtn" style="margin-top:6px;">Ganti Nama Pengguna</button>
+      <div id="usernameMsg" style="font-size:.85rem;margin-top:12px;line-height:1.5;"></div>
+      <hr style="margin:32px 0;border:none;border-top:1px solid var(--line)">
+      <div class="simple-field">
         <label>Kata Sandi Lama</label>
-        <input type="password" id="curPass">
+        <input type="password" id="curPass" autocomplete="current-password">
       </div>
       <div class="simple-field">
         <label>Kata Sandi Baru (minimal 6 huruf/angka)</label>
-        <input type="password" id="newPass">
+        <input type="password" id="newPass" autocomplete="new-password">
       </div>
       <button class="btn-top primary" id="changePassBtn" style="margin-top:6px;">Ganti Kata Sandi</button>
       <div id="passMsg" style="font-size:.85rem;margin-top:12px;line-height:1.5;"></div>
@@ -496,8 +518,37 @@
   // tombol reset di dalam panel akun (didelegasikan karena dirender ulang)
   document.addEventListener('click', (e) => {
     if (e.target && e.target.id === 'resetBtnInline') $('#resetModal').classList.add('show');
+    if (e.target && e.target.id === 'changeUsernameBtn') doChangeUsername();
     if (e.target && e.target.id === 'changePassBtn') doChangePassword();
   });
+
+  async function doChangeUsername() {
+    const cur = $('#curPassForUsername').value;
+    const next = $('#newUsername').value.trim();
+    const msg = $('#usernameMsg');
+    msg.textContent = '';
+    if (!cur || !next) { msg.style.color = '#c0392b'; msg.textContent = 'Isi nama pengguna baru dan kata sandi terlebih dahulu.'; return; }
+    try {
+      const res = await fetch('/api/auth/change-username', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ currentPassword: cur, newUsername: next })
+      });
+      const data = await res.json();
+      if (data.ok) {
+        msg.style.color = '#1e8e5a';
+        msg.textContent = `Nama pengguna berhasil diganti menjadi "${data.username}". Gunakan nama ini untuk login berikutnya.`;
+        $('#curPassForUsername').value = ''; $('#newUsername').value = '';
+        $('#newUsername').placeholder = `Saat ini: ${data.username}`;
+      } else {
+        msg.style.color = '#c0392b';
+        msg.textContent = data.error || 'Gagal mengganti nama pengguna.';
+      }
+    } catch (e) {
+      msg.style.color = '#c0392b';
+      msg.textContent = 'Tidak dapat terhubung ke server.';
+    }
+  }
 
   async function doChangePassword() {
     const cur = $('#curPass').value;

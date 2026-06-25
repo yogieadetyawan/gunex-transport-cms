@@ -157,4 +157,46 @@ router.post('/change-password', requireAuth, (req, res) => {
   res.json({ ok: true });
 });
 
+// Ganti nama pengguna (username) untuk login. Memakai pola yang sama dengan
+// change-password: password SAAT INI wajib dimasukkan sebagai konfirmasi
+// identitas (mencegah orang yang kebetulan menemukan sesi admin yang masih
+// terbuka langsung mengubah username tanpa tahu passwordnya), dan dibatasi
+// rate limit terpisah dari percobaan login biasa.
+const USERNAME_PATTERN = /^[a-zA-Z0-9_.]{3,32}$/;
+
+router.post('/change-username', requireAuth, (req, res) => {
+  const ip = getClientIp(req);
+  const rate = checkRateLimit('changeuser:' + ip);
+  if (rate.blocked) {
+    return res.status(429).json({
+      ok: false,
+      error: `Terlalu banyak percobaan gagal. Coba lagi dalam ${Math.ceil(rate.retryAfterSec / 60)} menit.`
+    });
+  }
+  const { currentPassword, newUsername } = req.body || {};
+  if (!currentPassword || !newUsername) {
+    return res.status(400).json({ ok: false, error: 'Password dan nama pengguna baru wajib diisi.' });
+  }
+  const trimmed = String(newUsername).trim();
+  if (!USERNAME_PATTERN.test(trimmed)) {
+    return res.status(400).json({
+      ok: false,
+      error: 'Nama pengguna harus 3-32 karakter, hanya huruf, angka, titik (.), atau garis bawah (_).'
+    });
+  }
+  const user = readUsers();
+  const match = bcrypt.compareSync(currentPassword, user.passwordHash);
+  if (!match) {
+    recordFailedAttempt('changeuser:' + ip);
+    return res.status(401).json({ ok: false, error: 'Password salah.' });
+  }
+  clearAttempts('changeuser:' + ip);
+  user.username = trimmed;
+  writeUsers(user);
+  // Perbarui sesi yang sedang aktif supaya konsisten dengan username baru,
+  // tanpa memaksa admin login ulang setelah berhasil mengganti namanya sendiri.
+  req.session.username = trimmed;
+  res.json({ ok: true, username: trimmed });
+});
+
 module.exports = { router, requireAuth, requireAuthPage };
