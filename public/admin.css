@@ -22,7 +22,13 @@ input{font-family:inherit;}
 .sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;}
 
 /* ===== Login screen ===== */
-.login-wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;background:linear-gradient(160deg,#102456,#1d3d87 55%,#2456b3);padding:24px;}
+.login-wrap{display:none;min-height:100vh;align-items:center;justify-content:center;background:linear-gradient(160deg,#102456,#1d3d87 55%,#2456b3);padding:24px;}
+.login-wrap.show{display:flex;}
+
+.boot-loading{display:none;min-height:100vh;align-items:center;justify-content:center;background:linear-gradient(160deg,#102456,#1d3d87 55%,#2456b3);}
+.boot-loading.show{display:flex;}
+.boot-loading .logo-icon{width:48px;height:48px;animation:bootPulse 1.1s ease-in-out infinite;}
+@keyframes bootPulse{0%,100%{opacity:.45;transform:scale(.94);}50%{opacity:1;transform:scale(1.04);}}
 .login-card{background:#fff;border-radius:14px;padding:40px 36px;max-width:380px;width:100%;box-shadow:0 30px 80px rgba(0,0,0,.35);}
 .login-logo{display:flex;align-items:center;gap:11px;margin-bottom:32px;}
 .login-logo .logo-icon{width:40px;height:40px;}

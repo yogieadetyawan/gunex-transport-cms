@@ -1,12 +1,18 @@
 (function () {
   function $(sel) { return document.querySelector(sel); }
 
+  function hideBootLoading() {
+    const el = $('#bootLoading');
+    if (el) el.classList.remove('show');
+  }
   function showLogin() {
-    $('#loginScreen').style.display = 'flex';
+    hideBootLoading();
+    $('#loginScreen').classList.add('show');
     $('#portalShell').classList.remove('active');
   }
   function showPortal() {
-    $('#loginScreen').style.display = 'none';
+    hideBootLoading();
+    $('#loginScreen').classList.remove('show');
     $('#portalShell').classList.add('active');
   }
 
