@@ -17,6 +17,15 @@ if (!process.env.SESSION_SECRET) {
   console.warn('[peringatan] SESSION_SECRET belum diset di environment variable. Server tetap berjalan dengan kunci acak, tapi semua sesi login akan ter-reset setiap kali server di-restart/redeploy. Disarankan set SESSION_SECRET di Railway > Variables.');
 }
 
+// Railway (dan kebanyakan platform hosting Node.js) menjalankan aplikasi di belakang
+// reverse proxy: koneksi browser->Railway memang HTTPS, tapi koneksi proxy->aplikasi
+// ini di "dalam" biasanya HTTP biasa. Tanpa baris ini, Express tidak tahu bahwa
+// request sebenarnya datang lewat HTTPS, sehingga cookie session dengan `secure: true`
+// GAGAL TERSIMPAN sama sekali di browser — akibatnya admin tampak harus login ulang
+// terus-menerus setiap pindah halaman, padahal login-nya sendiri sebenarnya berhasil.
+// 'trust proxy', 1 artinya percaya header X-Forwarded-* dari 1 lapis proxy di depan kita.
+app.set('trust proxy', 1);
+
 // --- Self-healing check ---
 // Jika data/content.json sudah ada tapi isinya kosong/rusak (misal karena pernah
 // dibuat ulang saat folder data/ sempat ditimpa Volume kosong sebelum perbaikan ini

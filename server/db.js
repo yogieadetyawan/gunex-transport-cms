@@ -7,9 +7,12 @@ const DATA_DIR = path.join(__dirname, '..', 'data');
 const CONTENT_FILE = path.join(DATA_DIR, 'content.json');
 const DEFAULT_FILE = path.join(DATA_DIR, 'content.default.json');
 const USERS_FILE = path.join(DATA_DIR, 'users.json');
+const FLEET_FILE = path.join(DATA_DIR, 'fleet.json');
+const FLEET_DEFAULT_FILE = path.join(DATA_DIR, 'fleet.default.json');
 
 const DEFAULT_USERNAME = 'admin';
 const DEFAULT_PASSWORD = 'gunex2008admin';
+const EMPTY_FLEET_DATA = { vehicles: [], services: [], tireEvents: [], categories: [] };
 
 function ensureDataDir() {
   if (!fs.existsSync(DATA_DIR)) {
@@ -83,4 +86,56 @@ function writeUsers(obj) {
   fs.renameSync(tmp, USERS_FILE);
 }
 
-module.exports = { readContent, writeContent, resetContent, readUsers, writeUsers, CONTENT_FILE, USERS_FILE, DEFAULT_USERNAME, DEFAULT_PASSWORD };
+// --- Gunex Fleet data (vehicles, services, tireEvents, categories) ---
+// Foto kendaraan TIDAK disimpan di sini sebagai base64 (akan membuat file ini
+// membesar tanpa batas). Foto disimpan sebagai file gambar terpisah lewat
+// endpoint upload yang sama dengan company profile (lihat content-routes.js),
+// dan field di sini hanya menyimpan URL/path-nya saja (string singkat).
+function getDefaultFleetRaw() {
+  if (fs.existsSync(FLEET_DEFAULT_FILE)) {
+    try {
+      return fs.readFileSync(FLEET_DEFAULT_FILE, 'utf-8');
+    } catch (e) {
+      // lanjut ke fallback di bawah
+    }
+  }
+  return JSON.stringify(EMPTY_FLEET_DATA, null, 2);
+}
+
+function ensureFleetFile() {
+  ensureDataDir();
+  if (!fs.existsSync(FLEET_FILE)) {
+    fs.writeFileSync(FLEET_FILE, getDefaultFleetRaw(), 'utf-8');
+  }
+}
+
+function readFleetData() {
+  ensureFleetFile();
+  try {
+    return JSON.parse(fs.readFileSync(FLEET_FILE, 'utf-8'));
+  } catch (e) {
+    // file rusak/korup -> kembalikan struktur kosong yang valid daripada crash
+    console.error('[fleet] Gagal membaca fleet.json, mengembalikan struktur kosong:', e.message);
+    return { ...EMPTY_FLEET_DATA };
+  }
+}
+
+function writeFleetData(obj) {
+  ensureDataDir();
+  const tmp = FLEET_FILE + '.tmp';
+  fs.writeFileSync(tmp, JSON.stringify(obj, null, 2), 'utf-8');
+  fs.renameSync(tmp, FLEET_FILE);
+}
+
+function resetFleetData() {
+  ensureDataDir();
+  const raw = getDefaultFleetRaw();
+  fs.writeFileSync(FLEET_FILE, raw, 'utf-8');
+  return JSON.parse(raw);
+}
+
+module.exports = {
+  readContent, writeContent, resetContent, readUsers, writeUsers,
+  readFleetData, writeFleetData, resetFleetData,
+  CONTENT_FILE, USERS_FILE, FLEET_FILE, DEFAULT_USERNAME, DEFAULT_PASSWORD
+};

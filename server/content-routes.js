@@ -2,7 +2,7 @@ const express = require('express');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
-const { readContent, writeContent, resetContent } = require('./db');
+const { readContent, writeContent, resetContent, readFleetData, writeFleetData, resetFleetData } = require('./db');
 const { requireAuth } = require('./auth');
 const EMBEDDED_DEFAULT_CONTENT = require('./default-content');
 
@@ -105,7 +105,7 @@ router.post('/content/reset', requireAuth, (req, res) => {
   }
 });
 
-// Admin: upload gambar (logo, peta, foto klien, dsb)
+// Admin: upload gambar (logo, peta, foto klien, foto kendaraan, dsb)
 router.post('/upload', requireAuth, (req, res) => {
   upload.single('image')(req, res, (err) => {
     if (err) return res.status(400).json({ ok: false, error: err.message });
@@ -113,6 +113,51 @@ router.post('/upload', requireAuth, (req, res) => {
     const url = `/uploads/${req.file.filename}`;
     res.json({ ok: true, url });
   });
+});
+
+// ===== Gunex Fleet: data terpusat (vehicles, services, tireEvents, categories) =====
+// Catatan keamanan: berbeda dari /api/content yang memang untuk konsumsi publik,
+// data fleet ini adalah data INTERNAL perusahaan (armada, sopir, dsb) — jadi GET
+// di sini JUGA mewajibkan login, tidak seperti /api/content yang publik.
+const FLEET_REQUIRED_ARRAYS = ['vehicles', 'services', 'tireEvents', 'categories'];
+function validateFleetData(incoming) {
+  if (!isPlainObject(incoming)) return 'Data armada harus berupa objek, bukan ' + (Array.isArray(incoming) ? 'daftar/array' : typeof incoming) + '.';
+  for (const key of FLEET_REQUIRED_ARRAYS) {
+    if (!Array.isArray(incoming[key])) return `Bagian "${key}" harus berupa daftar/array.`;
+  }
+  return null;
+}
+
+router.get('/fleet-data', requireAuth, (req, res) => {
+  try {
+    const data = readFleetData();
+    res.json({ ok: true, data });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: 'Gagal memuat data armada.' });
+  }
+});
+
+router.put('/fleet-data', requireAuth, (req, res) => {
+  const incoming = req.body && req.body.data;
+  const error = validateFleetData(incoming);
+  if (error) {
+    return res.status(400).json({ ok: false, error });
+  }
+  try {
+    writeFleetData(incoming);
+    res.json({ ok: true, data: incoming });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: 'Gagal menyimpan data armada.' });
+  }
+});
+
+router.post('/fleet-data/reset', requireAuth, (req, res) => {
+  try {
+    const data = resetFleetData();
+    res.json({ ok: true, data });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: 'Gagal mereset data armada.' });
+  }
 });
 
 module.exports = router;

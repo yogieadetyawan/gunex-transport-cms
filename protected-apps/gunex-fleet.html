@@ -428,6 +428,9 @@ select{
   <!-- TOP BAR -->
   <div class="topbar">
     <div class="brand">
+      <a href="/admin" title="Kembali ke Menu Utama" style="display:flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:8px;background:rgba(255,255,255,.06);color:currentColor;flex-shrink:0;margin-right:2px;">
+        <svg viewBox="0 0 24 24" fill="none" width="17" height="17"><path d="M19 12H5M12 19l-7-7 7-7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </a>
       <div class="brand-mark">
         <svg viewBox="0 0 24 24" fill="none"><path d="M3 16V7a1 1 0 0 1 1-1h9v10M13 16h7l1-4h-8M3 16h1m9 0h1m6 0h1M6.5 19a2 2 0 1 0 0-4 2 2 0 0 0 0 4zm11 0a2 2 0 1 0 0-4 2 2 0 0 0 0 4z" stroke="#031018" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
       </div>
@@ -511,16 +514,17 @@ select{
 window.MAINTENANCE_MODE = false; // ubah true untuk mengaktifkan mode pemeliharaan
 
 /* ============================================================
-   GUNEX FLEET — DATA LAYER
+   GUNEX FLEET — DATA LAYER (terpusat di server, dengan fallback
+   localStorage jika server tidak terjangkau, misal saat offline)
    ============================================================ */
-const DB_KEY = 'gunexFleetDB_v1';
+const DB_KEY = 'gunexFleetDB_v1'; // tetap dipakai sebagai cadangan lokal/offline
+const FLEET_API = '/api/fleet-data';
 
-function loadDB(){
+function loadDBFromLocalStorage(){
   try{
     const raw = localStorage.getItem(DB_KEY);
     if(raw){
       const parsed = JSON.parse(raw);
-      // Migrasi data lama yang belum memiliki struktur categories / vehicle.categoryId / driverName / pajak-kir / foto
       if(!Array.isArray(parsed.categories)) parsed.categories = [];
       if(Array.isArray(parsed.vehicles)){
         parsed.vehicles.forEach(v => {
@@ -534,20 +538,82 @@ function loadDB(){
       }
       return parsed;
     }
-  }catch(e){ console.error('Gagal memuat data', e); }
+  }catch(e){ console.error('Gagal memuat data lokal', e); }
   return { vehicles: [], services: [], tireEvents: [], categories: [] };
 }
-function saveDB(){
+
+function saveDBToLocalStorage(){
   try{
     localStorage.setItem(DB_KEY, JSON.stringify(DB));
     return true;
   }catch(e){
-    console.error('Gagal menyimpan data', e);
-    showToast('Gagal menyimpan data ke perangkat', true);
+    console.error('Gagal menyimpan data ke localStorage', e);
     return false;
   }
 }
-let DB = loadDB();
+
+// DB dimulai sebagai struktur kosong agar kode yang mengakses DB sebelum data
+// server termuat tidak error. Begitu fetchFleetDataFromServer() selesai, DB diisi
+// ulang dan UI di-render kembali (lihat initApp di bagian akhir file).
+let DB = { vehicles: [], services: [], tireEvents: [], categories: [] };
+let isFleetServerOnline = true; // diset false jika request ke server gagal, supaya kita tahu sedang pakai cadangan lokal
+
+async function fetchFleetDataFromServer(){
+  try{
+    const res = await fetch(FLEET_API);
+    if(res.status === 401){
+      // sesi habis -> arahkan kembali ke portal untuk login ulang
+      window.location.href = '/admin';
+      return null;
+    }
+    if(!res.ok) throw new Error('HTTP ' + res.status);
+    const json = await res.json();
+    if(!json.ok) throw new Error(json.error || 'Gagal memuat data dari server');
+    isFleetServerOnline = true;
+    return json.data;
+  }catch(e){
+    console.error('Gagal memuat data armada dari server, memakai cadangan lokal:', e);
+    isFleetServerOnline = false;
+    return null;
+  }
+}
+
+// Debounce: menumpuk perubahan beruntun (misal saat mengetik) jadi satu kali
+// kirim ke server, supaya tidak membuat request berlebihan ke server.
+let saveDebounceTimer = null;
+function saveDB(){
+  // Simpan instan ke localStorage dulu (cadangan + tetap responsif walau offline),
+  // baru kirim ke server di background dengan sedikit delay.
+  saveDBToLocalStorage();
+  clearTimeout(saveDebounceTimer);
+  saveDebounceTimer = setTimeout(syncDBToServer, 400);
+  return true;
+}
+
+async function syncDBToServer(){
+  try{
+    const res = await fetch(FLEET_API, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ data: DB })
+    });
+    if(res.status === 401){
+      showToast('Sesi habis, perubahan tersimpan sementara di perangkat ini. Silakan masuk lagi.', true);
+      isFleetServerOnline = false;
+      return;
+    }
+    const json = await res.json();
+    if(!json.ok) throw new Error(json.error || 'Gagal menyimpan ke server');
+    isFleetServerOnline = true;
+  }catch(e){
+    console.error('Gagal menyinkronkan data armada ke server:', e);
+    if(isFleetServerOnline){
+      // baru pertama kali gagal -> beri tahu pengguna sekali, jangan berulang-ulang
+      showToast('Tidak dapat terhubung ke server. Perubahan tersimpan di perangkat ini dan akan tersinkron otomatis nanti.', true);
+    }
+    isFleetServerOnline = false;
+  }
+}
 
 function uid(prefix){
   return prefix + '_' + Date.now().toString(36) + Math.random().toString(36).slice(2,7);
@@ -655,7 +721,7 @@ function escapeHtml(str){
    sebagai base64 (data URL) ASLI (tanpa kompresi/resize) langsung
    di objek vehicle.
    ============================================================ */
-const PHOTO_MAX_FILE_SIZE = 8 * 1024 * 1024; // 8MB — batas wajar agar localStorage (~5-10MB/origin) tidak cepat penuh
+const PHOTO_MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB — disamakan dengan batas upload di server
 
 /* Membaca File (hasil input type=file) sebagai data URL ASLI, tanpa
    resize/kompresi apapun — ukuran & kualitas file dipertahankan persis
@@ -679,20 +745,50 @@ function readImageFileAsOriginal(file){
 }
 
 /* Handler generik dipasang ke <input type=file> foto kendaraan/pertamina di form.
-   fieldKey: 'photo' atau 'pertaminaPhoto' — menentukan id elemen preview & hidden state. */
+   fieldKey: 'photo' atau 'pertaminaPhoto' — menentukan id elemen preview & hidden state.
+   Foto diunggah ke server (path /uploads/...) sehingga bisa diakses dari perangkat
+   manapun, bukan disimpan sebagai base64 langsung di data kendaraan (yang akan
+   membuat data armada membesar tanpa batas dan tidak praktis untuk disinkronkan). */
 function handlePhotoInputChange(fieldKey, inputEl){
   const file = inputEl.files && inputEl.files[0];
   if(!file) return;
   const previewWrap = document.getElementById('preview_'+fieldKey);
-  if(previewWrap) previewWrap.innerHTML = `<div class="field-hint">Memuat foto…</div>`;
-  readImageFileAsOriginal(file).then(dataUrl => {
-    window['__pendingPhoto_'+fieldKey] = dataUrl;
-    renderPhotoPreview(fieldKey, dataUrl);
-  }).catch(err => {
-    showToast(err.message, true);
+  if(previewWrap) previewWrap.innerHTML = `<div class="field-hint">Mengunggah foto…</div>`;
+
+  if(!file.type || !file.type.startsWith('image/')){
+    showToast('File yang dipilih bukan gambar', true);
     if(previewWrap) previewWrap.innerHTML = '';
     inputEl.value = '';
-  });
+    return;
+  }
+  if(file.size > PHOTO_MAX_FILE_SIZE){
+    showToast(`Ukuran file terlalu besar (${(file.size/1024/1024).toFixed(1)}MB). Maksimal ${PHOTO_MAX_FILE_SIZE/1024/1024}MB.`, true);
+    if(previewWrap) previewWrap.innerHTML = '';
+    inputEl.value = '';
+    return;
+  }
+
+  const formData = new FormData();
+  formData.append('image', file);
+  fetch('/api/upload', { method: 'POST', body: formData })
+    .then(res => {
+      if(res.status === 401){
+        window.location.href = '/admin';
+        return null;
+      }
+      return res.json();
+    })
+    .then(json => {
+      if(!json) return;
+      if(!json.ok) throw new Error(json.error || 'Gagal mengunggah foto');
+      window['__pendingPhoto_'+fieldKey] = json.url;
+      renderPhotoPreview(fieldKey, json.url);
+    })
+    .catch(err => {
+      showToast(err.message || 'Gagal mengunggah foto ke server', true);
+      if(previewWrap) previewWrap.innerHTML = '';
+      inputEl.value = '';
+    });
 }
 function renderPhotoPreview(fieldKey, dataUrl){
   const wrap = document.getElementById('preview_'+fieldKey);
@@ -3173,8 +3269,23 @@ function initApp(){
     document.getElementById('maintOverlay').classList.add('active');
     return;
   }
-  renderDashboard();
-  updateFab('dashboard');
+  // Coba ambil data terpusat dari server dulu. Jika berhasil, DB diisi dari server
+  // (data yang sama akan terlihat dari perangkat manapun). Jika gagal (server
+  // tidak terjangkau / offline), pakai cadangan localStorage di perangkat ini
+  // supaya aplikasi tetap bisa dipakai.
+  fetchFleetDataFromServer().then(serverData => {
+    if(serverData){
+      DB = serverData;
+      if(!Array.isArray(DB.categories)) DB.categories = [];
+      if(!Array.isArray(DB.vehicles)) DB.vehicles = [];
+      if(!Array.isArray(DB.services)) DB.services = [];
+      if(!Array.isArray(DB.tireEvents)) DB.tireEvents = [];
+    } else {
+      DB = loadDBFromLocalStorage();
+    }
+    renderDashboard();
+    updateFab('dashboard');
+  });
 }
 document.addEventListener('DOMContentLoaded', initApp);
 </script>

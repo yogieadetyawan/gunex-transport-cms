@@ -14,9 +14,16 @@ aplikasi yang bisa diakses setelah login satu kali:
 
 - **Backend**: Node.js + Express
 - **Penyimpanan data company profile**: file JSON (`data/content.json`) — tidak perlu instal database terpisah
-- **Penyimpanan data Gunex Fleet & PO Matcher**: keduanya aplikasi standalone
-  yang menyimpan datanya sendiri di `localStorage` browser (tidak melalui
-  server ini) — sesuai cara kerja aslinya sebelum digabung ke portal.
+- **Penyimpanan data Gunex Fleet**: juga tersimpan terpusat di server (`data/fleet.json`)
+  — sama seperti company profile, semua data armada (kendaraan, riwayat
+  service, riwayat ban, kategori) bisa diakses dan diedit dari perangkat
+  manapun setelah login. Jika koneksi ke server putus sementara, aplikasi
+  otomatis memakai cadangan di localStorage perangkat tersebut dan akan
+  tersinkron lagi begitu koneksi pulih.
+- **PO Matcher**: TIDAK memiliki data yang disimpan permanen — aplikasi ini
+  murni alat olah file (upload PDF + Excel → proses → unduh hasil), sehingga
+  tidak ada yang perlu dipusatkan. Setiap kali dipakai, prosesnya dari awal
+  lagi dengan file baru.
 - **Autentikasi**: satu login admin (session + password ter-hash bcrypt)
   berlaku untuk akses ke ketiga aplikasi.
 - **Frontend publik (website company profile)**: HTML + JS murni, mengambil
@@ -24,11 +31,9 @@ aplikasi yang bisa diakses setelah login satu kali:
 - **Frontend admin**: portal menu di `/admin`, lalu masing-masing aplikasi di
   `/admin/company-profile`, `/admin/gunex-fleet`, `/admin/po-matcher`
 
-Karena konten company profile disimpan di server (bukan di browser), **semua
-pengunjung akan melihat hasil edit yang sama** begitu admin menyimpan
-perubahan. Sedangkan data Gunex Fleet dan PO Matcher tersimpan per-perangkat
-(localStorage) — jika dibuka dari komputer/browser berbeda, datanya tidak
-otomatis sama.
+Karena konten company profile dan data Gunex Fleet disimpan di server (bukan
+hanya di browser), **semua pengunjung/pengguna akan melihat hasil edit yang
+sama** begitu disimpan, dari perangkat manapun.
 
 ## Menjalankan di komputer/server sendiri
 
@@ -186,11 +191,13 @@ gunex-app/
 │   │                    # tidak otomatis disajikan oleh static file server.
 │   │                    # Hanya bisa dibuka lewat /admin/gunex-fleet dan
 │   │                    # /admin/po-matcher yang diperiksa session loginnya.
-│   ├── gunex-fleet.html # Aplikasi pendataan armada (standalone, localStorage)
-│   └── po-matcher.html  # Aplikasi pencocokan PO vs tagihan (standalone, localStorage)
+│   ├── gunex-fleet.html # Aplikasi pendataan armada (data terpusat di server)
+│   └── po-matcher.html  # Aplikasi pencocokan PO vs tagihan (tanpa data tersimpan)
 ├── data/
-│   ├── content.json          # Data konten aktif (dibuat otomatis saat pertama jalan)
+│   ├── content.json          # Data konten company profile aktif (otomatis dibuat)
 │   ├── content.default.json  # Cadangan konten bawaan (untuk fitur reset)
+│   ├── fleet.json            # Data armada aktif: kendaraan, service, ban, kategori
+│   ├── fleet.default.json    # Cadangan struktur kosong (untuk fitur reset)
 │   └── users.json            # Kredensial admin (password ter-hash)
 └── package.json
 ```
@@ -198,16 +205,20 @@ gunex-app/
 ## Catatan tentang dua aplikasi tambahan (Gunex Fleet & PO Matcher)
 
 Kedua aplikasi ini dibangun sebelumnya sebagai file HTML tunggal yang berdiri
-sendiri (memakai `localStorage` browser, tanpa server). Saat digabung ke
-portal ini, **isi/logic di dalamnya tidak diubah sama sekali** — hanya
-ditambahkan lapisan: (1) wajib login dulu sebelum bisa dibuka, dan (2)
-kebijakan keamanan browser (CSP) yang disesuaikan supaya skrip dan library
-CDN yang dipakainya tetap berfungsi seperti semula.
+sendiri. Saat digabung ke portal ini:
 
-Konsekuensinya:
-- Data yang diisi di Gunex Fleet / PO Matcher tersimpan di **browser yang
-  dipakai saat itu**, bukan di server. Membuka dari perangkat lain berarti
-  mulai dengan data kosong.
-- Jika ingin kedua aplikasi ini punya data terpusat (tersimpan di server,
-  bisa diakses dari mana saja seperti company profile), itu butuh
-  pengembangan lanjutan tersendiri — beri tahu jika ingin dibantu ke arah itu.
+- **Tampilan dan cara pakainya tidak diubah sama sekali** — semua fitur,
+  tombol, dan alur kerja tetap sama seperti sebelumnya.
+- **Gunex Fleet** sekarang menyimpan datanya (kendaraan, riwayat service,
+  riwayat ban, kategori) lewat API ke server (`/api/fleet-data`), bukan lagi
+  hanya di `localStorage` browser. Foto kendaraan & barcode Pertamina diunggah
+  ke server lewat endpoint upload yang sama dengan company profile, sehingga
+  data JSON tetap ringan meskipun banyak foto. Jika koneksi ke server putus
+  sementara, aplikasi otomatis memakai cadangan localStorage di perangkat itu
+  dan akan mencoba menyinkronkan lagi saat fungsi simpan dipanggil berikutnya.
+- **PO Matcher** tidak diubah — aplikasi ini murni alat olah file sekali
+  pakai (PDF + Excel masuk, hasil cocokan keluar), tidak ada data yang perlu
+  atau bisa dipusatkan.
+- Ditambahkan: tombol "kembali ke menu" di pojok kiri atas kedua aplikasi,
+  dan kebijakan keamanan browser (CSP) yang disesuaikan supaya skrip dan
+  library CDN yang dipakai (jsPDF, dsb) tetap berfungsi seperti semula.
