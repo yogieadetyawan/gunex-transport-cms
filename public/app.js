@@ -1,6 +1,5 @@
 (function () {
   const app = document.getElementById('app');
-  const loadingBar = document.getElementById('loadingBar');
 
   function esc(str) {
     if (str === undefined || str === null) return '';
@@ -50,7 +49,7 @@
             <a href="#armada" class="btn btn-ghost">${esc(hero.ctaSecondary)}</a>
           </div>
         </div>
-        <div class="stat-strip">${stats}</div>
+        <div class="stat-strip reveal">${stats}</div>
       </div>
     </section>`;
   }
@@ -61,7 +60,7 @@
       <li><span>${esc(item.label)}</span><span>${esc(item.value)}</span></li>
     `).join('');
     return `
-    <section class="section section-light" id="tentang">
+    <section class="section section-light reveal" id="tentang">
       <div class="wrap">
         <div class="km-tag">${esc(about.kicker)}</div>
         <h2 class="headline">${esc(about.headline)}</h2>
@@ -91,7 +90,7 @@
         <div class="km-tag">${esc(services.kicker)}</div>
         <h2 class="headline">${esc(services.headline)}</h2>
         <p class="lede">${esc(services.lede)}</p>
-        <div class="svc-grid">${items}</div>
+        <div class="svc-grid reveal">${items}</div>
       </div>
     </section>`;
   }
@@ -113,7 +112,7 @@
         <div class="km-tag">${esc(fleet.kicker)}</div>
         <h2 class="headline">${esc(fleet.headline)}</h2>
         <p class="lede">${esc(fleet.lede)}</p>
-        <div class="fleet-grid">${items}</div>
+        <div class="fleet-grid reveal">${items}</div>
         <div class="fleet-total">TOTAL ARMADA OPERASIONAL&nbsp; <b>${esc(fleet.totalUnit)}</b>&nbsp; UNIT KENDARAAN</div>
       </div>
     </section>`;
@@ -133,7 +132,7 @@
         <div class="km-tag">${esc(flow.kicker)}</div>
         <h2 class="headline">${esc(flow.headline)}</h2>
         <p class="lede">${esc(flow.lede)}</p>
-        <div class="flow">
+        <div class="flow reveal">
           <div class="flow-line"></div>
           <div class="flow-steps">${steps}</div>
         </div>
@@ -158,7 +157,7 @@
         <div class="km-tag">${esc(coverage.kicker)}</div>
         <h2 class="headline">${esc(coverage.headline)}</h2>
         <p class="lede">${esc(coverage.lede)}</p>
-        <div class="cov-wrap">
+        <div class="cov-wrap reveal">
           <div class="cov-list">${list}</div>
           <div class="cov-map">
             <div class="java-map">
@@ -181,7 +180,7 @@
         <div class="km-tag">${esc(clients.kicker)}</div>
         <h2 class="headline">${esc(clients.headline)}</h2>
         <p class="lede">${esc(clients.lede)}</p>
-        <div class="client-strip"><div class="client-grid">${items}</div></div>
+        <div class="client-strip"><div class="client-grid reveal">${items}</div></div>
       </div>
     </section>`;
   }
@@ -193,7 +192,7 @@
         <div class="km-tag">${esc(contact.kicker)}</div>
         <h2 class="headline">${esc(contact.headline)}</h2>
         <p class="lede">${esc(contact.lede)}</p>
-        <div class="contact-wrap">
+        <div class="contact-wrap reveal">
           <div class="contact-info">
             <div class="contact-item">
               ${PIN_OUTLINE.replace('class="pin"', 'class="ic"')}
@@ -253,12 +252,66 @@
         btn.textContent = 'Terkirim ✓';
       });
     }
+
+    initScrollAnimations();
   }
 
-  function setLoading(pct) {
-    if (loadingBar) loadingBar.style.width = pct + '%';
-    if (pct >= 100) setTimeout(() => { if (loadingBar) loadingBar.style.opacity = '0'; }, 300);
+  // ---------- Boot loader: layar pembuka singkat saat website pertama dibuka ----------
+  const bootLoader = document.getElementById('bootLoader');
+  const bootFill = document.getElementById('bootFill');
+  function setBootProgress(pct) {
+    if (bootFill) bootFill.style.width = pct + '%';
   }
+  function hideBootLoader() {
+    if (!bootLoader) {
+      document.body.classList.add('page-ready');
+      return;
+    }
+    setBootProgress(100);
+    // beri sedikit waktu agar progres 100% sempat terlihat sebelum fade-out,
+    // supaya transisinya terasa selesai dengan tuntas, bukan terpotong.
+    setTimeout(() => {
+      bootLoader.classList.add('boot-hide');
+      document.body.classList.add('page-ready');
+      setTimeout(() => { if (bootLoader && bootLoader.parentNode) bootLoader.remove(); }, 650);
+    }, 220);
+  }
+
+  // ---------- Scroll reveal: section/kartu masuk halus saat pertama terlihat ----------
+  let scrollObserver = null;
+  function initScrollAnimations() {
+    if (scrollObserver) scrollObserver.disconnect();
+    const reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const inIframe = window.self !== window.top;
+    const targets = document.querySelectorAll('.reveal');
+    if (reduceMotion || inIframe || !('IntersectionObserver' in window)) {
+      // Di mode pratinjau admin, tampilkan langsung tanpa animasi scroll —
+      // pratinjau harus mencerminkan tampilan akhir secara instan.
+      targets.forEach(el => el.classList.add('in-view'));
+      return;
+    }
+    scrollObserver = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          entry.target.classList.add('in-view');
+          scrollObserver.unobserve(entry.target);
+        }
+      });
+    }, { threshold: 0.15, rootMargin: '0px 0px -40px 0px' });
+    targets.forEach(el => scrollObserver.observe(el));
+  }
+
+  // ---------- Header: tampilan halus saat halaman mulai di-scroll ----------
+  function initHeaderScrollState() {
+    const header = document.querySelector('header');
+    if (!header) return;
+    const update = () => {
+      header.classList.toggle('scrolled', window.scrollY > 12);
+    };
+    update();
+    window.addEventListener('scroll', update, { passive: true });
+  }
+  initHeaderScrollState();
 
   // ---------- Mode preview: dengarkan pesan dari admin panel ----------
   // Jika halaman ini dibuka di dalam iframe oleh /admin, admin.js akan mengirim
@@ -281,10 +334,20 @@
   });
 
   async function init() {
-    setLoading(30);
+    // Jika halaman ini dimuat di dalam iframe (mode pratinjau admin), boot loader
+    // langsung disingkirkan tanpa animasi — pratinjau harus terasa instan, bukan
+    // menunggu layar pembuka setiap kali admin mengetik.
+    const inIframe = window.self !== window.top;
+    if (inIframe && bootLoader) {
+      bootLoader.remove();
+      document.body.classList.add('page-ready');
+    } else {
+      setBootProgress(35);
+    }
+
     try {
       const res = await fetch('/api/content');
-      setLoading(70);
+      if (!inIframe) setBootProgress(75);
       const data = await res.json();
       if (data.ok) {
         render(data.content);
@@ -298,7 +361,8 @@
     } catch (e) {
       app.innerHTML = '<div class="wrap" style="padding:140px 0;text-align:center;color:#5f7290;">Tidak dapat terhubung ke server.</div>';
     }
-    setLoading(100);
+
+    if (!inIframe) hideBootLoader();
   }
 
   init();
