@@ -160,4 +160,28 @@ router.post('/fleet-data/reset', requireAuth, (req, res) => {
   }
 });
 
+// Endpoint khusus untuk navigator.sendBeacon() — dipanggil dari sisi klien saat
+// tab/halaman akan ditutup dan masih ada perubahan yang belum sempat tersinkron
+// (lihat flushPendingChangesOnExit di gunex-fleet.html). Beacon mengirim body
+// JSON MENTAH (bukan dibungkus {data: ...} seperti PUT biasa, karena dikirim
+// sebagai Blob langsung), dan tidak menunggu response — jadi endpoint ini harus
+// tetap merespons cepat dan tidak mengandalkan adanya balasan yang dibaca klien.
+// Cookie session tetap terkirim normal oleh browser untuk same-origin beacon,
+// sehingga requireAuth tetap berfungsi seperti endpoint lain.
+router.post('/fleet-data/beacon', requireAuth, (req, res) => {
+  const incoming = req.body;
+  const error = validateFleetData(incoming);
+  if (error) {
+    // Beacon tidak baca response, tapi tetap kembalikan status yang benar untuk log server.
+    return res.status(400).end();
+  }
+  try {
+    writeFleetData(incoming);
+    res.status(204).end();
+  } catch (e) {
+    console.error('[beacon] Gagal menyimpan data armada darurat:', e);
+    res.status(500).end();
+  }
+});
+
 module.exports = router;

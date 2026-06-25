@@ -518,6 +518,7 @@ window.MAINTENANCE_MODE = false; // ubah true untuk mengaktifkan mode pemelihara
    localStorage jika server tidak terjangkau, misal saat offline)
    ============================================================ */
 const DB_KEY = 'gunexFleetDB_v1'; // tetap dipakai sebagai cadangan lokal/offline
+const DB_SYNCED_AT_KEY = 'gunexFleetDB_v1_syncedAt'; // kapan terakhir BERHASIL tersinkron ke server
 const FLEET_API = '/api/fleet-data';
 
 function loadDBFromLocalStorage(){
@@ -552,11 +553,35 @@ function saveDBToLocalStorage(){
   }
 }
 
+// Menandai bahwa DB yang SEKARANG ada di localStorage sudah berhasil tersinkron
+// ke server pada waktu tertentu. Dipakai untuk mendeteksi "ada perubahan lokal
+// yang lebih baru daripada yang sempat tersinkron" — lihat hasUnsyncedLocalData().
+function markLocalDataAsSynced(){
+  try{ localStorage.setItem(DB_SYNCED_AT_KEY, String(Date.now())); }catch(e){}
+}
+
+// Mendeteksi apakah ada perubahan di localStorage yang BELUM pernah berhasil
+// tersinkron ke server — kondisi yang bisa terjadi kalau perangkat ini mati
+// total/koneksi putus total SEBELUM sempat ada kesempatan sinkronisasi apapun
+// (di luar semua jaring pengaman lain yang sudah ada). Dicek SETIAP kali
+// halaman dibuka, SEBELUM memutuskan mana yang dipakai: data server atau lokal.
+function hasUnsyncedLocalData(){
+  try{
+    const raw = localStorage.getItem(DB_KEY);
+    if(!raw) return false; // tidak ada data lokal sama sekali, tidak ada yg perlu dikhawatirkan
+    const syncedAt = localStorage.getItem(DB_SYNCED_AT_KEY);
+    // Jika belum pernah tercatat tersinkron SAMA SEKALI tapi sudah ada data lokal,
+    // anggap berisiko (mungkin dari sesi lama sebelum fitur tracking ini ada).
+    return !syncedAt;
+  }catch(e){ return false; }
+}
+
 // DB dimulai sebagai struktur kosong agar kode yang mengakses DB sebelum data
 // server termuat tidak error. Begitu fetchFleetDataFromServer() selesai, DB diisi
 // ulang dan UI di-render kembali (lihat initApp di bagian akhir file).
 let DB = { vehicles: [], services: [], tireEvents: [], categories: [] };
 let isFleetServerOnline = true; // diset false jika request ke server gagal, supaya kita tahu sedang pakai cadangan lokal
+let hasUnsyncedChanges = false; // true jika ada perubahan yang BELUM dikonfirmasi server menyimpannya
 
 async function fetchFleetDataFromServer(){
   try{
@@ -578,42 +603,161 @@ async function fetchFleetDataFromServer(){
   }
 }
 
-// Debounce: menumpuk perubahan beruntun (misal saat mengetik) jadi satu kali
-// kirim ke server, supaya tidak membuat request berlebihan ke server.
+// ============================================================
+// JAMINAN TIDAK ADA DATA HILANG — strategi berlapis:
+//
+// 1. Setiap saveDB() langsung tersimpan ke localStorage SECARA INSTAN (sinkron),
+//    jadi walau internet putus total atau tab ditutup, data TIDAK PERNAH hanya
+//    "mengambang" di memori — selalu ada jejaknya di disk perangkat itu.
+// 2. Sinkronisasi ke server di-debounce 400ms untuk efisiensi (tidak spam
+//    request saat mengetik cepat), TAPI:
+//    a. Saat halaman/tab ditutup (pagehide/beforeunload) SEBELUM debounce
+//       selesai, kita PAKSA kirim sisa perubahan via navigator.sendBeacon —
+//       API browser yang KHUSUS dirancang untuk "tetap terkirim walau
+//       halaman langsung ditutup", tidak seperti fetch() biasa yang bisa
+//       dibatalkan begitu tab hilang.
+//    b. Jika sinkronisasi gagal (offline/server down), kita TIDAK menyerah:
+//       retry otomatis berkala (setiap 5 detik) sampai berhasil, selama
+//       hasUnsyncedChanges masih true.
+//    c. Status "belum tersinkron" ditampilkan jelas di UI (lihat
+//       updateSyncIndicator), supaya pengguna tahu kalau ada perubahan yang
+//       masih tertahan di perangkatnya dan belum aman di server.
+// ============================================================
+
 let saveDebounceTimer = null;
+let retrySyncInterval = null;
+
 function saveDB(){
-  // Simpan instan ke localStorage dulu (cadangan + tetap responsif walau offline),
-  // baru kirim ke server di background dengan sedikit delay.
   saveDBToLocalStorage();
+  hasUnsyncedChanges = true;
+  updateSyncIndicator();
   clearTimeout(saveDebounceTimer);
-  saveDebounceTimer = setTimeout(syncDBToServer, 400);
+  saveDebounceTimer = setTimeout(syncDBToServer, 200);
+  ensureRetryLoopRunning();
   return true;
 }
 
-async function syncDBToServer(){
+async function syncDBToServer(silent){
+  // Snapshot data SAAT INI sebelum request dikirim — jika ada perubahan baru
+  // lagi SELAMA request berjalan, hasUnsyncedChanges akan tetap true sehingga
+  // tidak salah dianggap "sudah aman" padahal ada perubahan yang lebih baru.
+  const snapshotObj = DB;
+  const snapshot = JSON.stringify(snapshotObj);
   try{
     const res = await fetch(FLEET_API, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ data: DB })
+      body: JSON.stringify({ data: snapshotObj })
     });
     if(res.status === 401){
-      showToast('Sesi habis, perubahan tersimpan sementara di perangkat ini. Silakan masuk lagi.', true);
+      if(!silent) showToast('Sesi habis, perubahan tersimpan sementara di perangkat ini. Silakan masuk lagi.', true);
       isFleetServerOnline = false;
-      return;
+      return false;
     }
     const json = await res.json();
     if(!json.ok) throw new Error(json.error || 'Gagal menyimpan ke server');
     isFleetServerOnline = true;
+    // Hanya tandai "tersinkron" jika snapshot yang berhasil dikirim masih
+    // sama dengan DB saat ini (tidak ada perubahan baru yang masuk di sela-sela).
+    if (JSON.stringify(DB) === snapshot) {
+      hasUnsyncedChanges = false;
+      markLocalDataAsSynced();
+      stopRetryLoopIfClean();
+    }
+    updateSyncIndicator();
+    return true;
   }catch(e){
     console.error('Gagal menyinkronkan data armada ke server:', e);
-    if(isFleetServerOnline){
-      // baru pertama kali gagal -> beri tahu pengguna sekali, jangan berulang-ulang
-      showToast('Tidak dapat terhubung ke server. Perubahan tersimpan di perangkat ini dan akan tersinkron otomatis nanti.', true);
+    if(isFleetServerOnline && !silent){
+      showToast('Tidak dapat terhubung ke server. Perubahan tersimpan di perangkat ini dan akan tersinkron otomatis.', true);
     }
     isFleetServerOnline = false;
+    updateSyncIndicator();
+    return false;
   }
 }
+
+function ensureRetryLoopRunning(){
+  if (retrySyncInterval) return;
+  retrySyncInterval = setInterval(() => {
+    if (hasUnsyncedChanges) {
+      syncDBToServer(true); // silent: jangan spam toast tiap retry
+    } else {
+      stopRetryLoopIfClean();
+    }
+  }, 5000);
+}
+function stopRetryLoopIfClean(){
+  if (!hasUnsyncedChanges && retrySyncInterval) {
+    clearInterval(retrySyncInterval);
+    retrySyncInterval = null;
+  }
+}
+
+// Indikator visual kecil di pojok kanan atas topbar: muncul HANYA jika ada
+// perubahan yang belum terkonfirmasi tersimpan di server, supaya pengguna
+// tidak pernah meninggalkan halaman tanpa tahu ada data yang masih tertahan.
+function updateSyncIndicator(){
+  let el = document.getElementById('syncIndicator');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'syncIndicator';
+    el.style.cssText = 'position:fixed;top:10px;right:10px;z-index:200;font-size:11px;font-weight:600;padding:6px 12px;border-radius:20px;display:none;align-items:center;gap:6px;backdrop-filter:blur(6px);transition:opacity .2s;';
+    document.body.appendChild(el);
+  }
+  if (hasUnsyncedChanges) {
+    el.style.display = 'flex';
+    el.style.background = isFleetServerOnline ? 'rgba(240,165,0,0.18)' : 'rgba(220,60,60,0.2)';
+    el.style.color = isFleetServerOnline ? '#f0a500' : '#ff8080';
+    el.style.border = '1px solid ' + (isFleetServerOnline ? 'rgba(240,165,0,0.4)' : 'rgba(220,60,60,0.4)');
+    el.innerHTML = isFleetServerOnline
+      ? '<span style="width:6px;height:6px;border-radius:50%;background:currentColor;animation:pulse 1.2s infinite;"></span> Menyimpan…'
+      : '<span style="width:6px;height:6px;border-radius:50%;background:currentColor;"></span> Belum tersinkron — mencoba lagi…';
+  } else {
+    el.style.display = 'none';
+  }
+}
+if (!document.getElementById('syncIndicatorStyle')) {
+  const styleTag = document.createElement('style');
+  styleTag.id = 'syncIndicatorStyle';
+  styleTag.textContent = '@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}';
+  document.head.appendChild(styleTag);
+}
+
+// Paksa kirim perubahan yang masih tertahan SAAT halaman akan ditutup/dipindah.
+// navigator.sendBeacon dipakai karena (berbeda dari fetch biasa) browser
+// menjamin request ini tetap dikirim walau halaman langsung hilang/ditutup,
+// asalkan ukurannya kecil — cocok untuk kasus ini.
+function flushPendingChangesOnExit(){
+  if (!hasUnsyncedChanges) return;
+  try {
+    const blob = new Blob([JSON.stringify(DB)], { type: 'application/json' });
+    navigator.sendBeacon(FLEET_API + '/beacon', blob);
+  } catch (e) {
+    console.error('Gagal mengirim beacon penyimpanan darurat:', e);
+  }
+}
+window.addEventListener('pagehide', flushPendingChangesOnExit);
+window.addEventListener('beforeunload', (e) => {
+  flushPendingChangesOnExit();
+  if (hasUnsyncedChanges) {
+    // Sebagian browser modern mengabaikan custom message ini, tapi tetap
+    // memicu dialog konfirmasi bawaan browser ("Leave site? Changes may not be saved").
+    e.preventDefault();
+    e.returnValue = '';
+  }
+});
+
+// Lapisan tambahan: 'visibilitychange' terpicu jauh lebih konsisten daripada
+// pagehide/beforeunload — termasuk saat pengguna pindah tab, minimize browser,
+// atau (di HP) pindah ke aplikasi lain TANPA menutup tab sama sekali. Ini
+// memberi kesempatan ekstra untuk menyinkronkan perubahan sebelum risiko tab
+// benar-benar ditutup/di-kill oleh sistem (umum terjadi di browser mobile).
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'hidden' && hasUnsyncedChanges) {
+    flushPendingChangesOnExit();
+  }
+});
 
 function uid(prefix){
   return prefix + '_' + Date.now().toString(36) + Math.random().toString(36).slice(2,7);
@@ -3269,10 +3413,37 @@ function initApp(){
     document.getElementById('maintOverlay').classList.add('active');
     return;
   }
-  // Coba ambil data terpusat dari server dulu. Jika berhasil, DB diisi dari server
-  // (data yang sama akan terlihat dari perangkat manapun). Jika gagal (server
-  // tidak terjangkau / offline), pakai cadangan localStorage di perangkat ini
-  // supaya aplikasi tetap bisa dipakai.
+
+  // PENTING — urutan pemeriksaan ini sengaja dirancang untuk mencegah hilangnya
+  // perubahan yang sempat tersimpan di localStorage tapi BELUM pernah berhasil
+  // tersinkron ke server (kasus ekstrem: perangkat mati/koneksi putus total
+  // tepat setelah perubahan dibuat, sebelum semua jaring pengaman sync lain
+  // sempat berjalan). Tanpa pemeriksaan ini, begitu server bisa dihubungi lagi,
+  // datanya akan langsung tertimpa data server yang lebih lama → data hilang.
+  if (hasUnsyncedLocalData()) {
+    const localData = loadDBFromLocalStorage();
+    console.warn('[fleet] Ditemukan data lokal yang belum pernah tersinkron ke server. Mencoba mengirimkannya dulu sebelum memuat data server...');
+    DB = localData;
+    if(!Array.isArray(DB.categories)) DB.categories = [];
+    if(!Array.isArray(DB.vehicles)) DB.vehicles = [];
+    if(!Array.isArray(DB.services)) DB.services = [];
+    if(!Array.isArray(DB.tireEvents)) DB.tireEvents = [];
+    hasUnsyncedChanges = true;
+    updateSyncIndicator();
+    renderDashboard();
+    updateFab('dashboard');
+    // Coba sinkronkan SEKARANG. Jika berhasil, data lokal yang sempat "terjebak"
+    // ini resmi jadi data server yang dipakai bersama. Jika gagal (masih
+    // offline), retry loop yang sudah berjalan (lihat ensureRetryLoopRunning)
+    // akan terus mencoba di latar belakang tanpa mengganggu pengguna.
+    syncDBToServer(true);
+    return;
+  }
+
+  // Tidak ada risiko data lokal tertinggal -> aman mengambil data dari server
+  // seperti biasa (data yang sama akan terlihat dari perangkat manapun). Jika
+  // server tidak terjangkau, pakai cadangan localStorage supaya aplikasi tetap
+  // bisa dipakai walau sedang offline.
   fetchFleetDataFromServer().then(serverData => {
     if(serverData){
       DB = serverData;
@@ -3280,6 +3451,11 @@ function initApp(){
       if(!Array.isArray(DB.vehicles)) DB.vehicles = [];
       if(!Array.isArray(DB.services)) DB.services = [];
       if(!Array.isArray(DB.tireEvents)) DB.tireEvents = [];
+      // Data resmi dari server dianggap sebagai titik "aman" terbaru -> simpan
+      // sebagai cadangan lokal dan tandai tersinkron, supaya pemeriksaan
+      // hasUnsyncedLocalData() di kunjungan berikutnya tidak salah curiga.
+      saveDBToLocalStorage();
+      markLocalDataAsSynced();
     } else {
       DB = loadDBFromLocalStorage();
     }

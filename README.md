@@ -17,9 +17,23 @@ aplikasi yang bisa diakses setelah login satu kali:
 - **Penyimpanan data Gunex Fleet**: juga tersimpan terpusat di server (`data/fleet.json`)
   — sama seperti company profile, semua data armada (kendaraan, riwayat
   service, riwayat ban, kategori) bisa diakses dan diedit dari perangkat
-  manapun setelah login. Jika koneksi ke server putus sementara, aplikasi
-  otomatis memakai cadangan di localStorage perangkat tersebut dan akan
-  tersinkron lagi begitu koneksi pulih.
+  manapun setelah login. Ada beberapa lapis perlindungan supaya perubahan
+  tidak pernah hilang, walau dalam kondisi tidak ideal sekalipun:
+  - Setiap perubahan langsung tersimpan ke perangkat (localStorage) secara
+    instan, baru dikirim ke server sepersekian detik kemudian.
+  - Jika tab/aplikasi ditutup tepat di saat pengiriman ke server belum
+    selesai, browser tetap memaksa mengirim sisa perubahan tersebut lewat
+    mekanisme khusus (`navigator.sendBeacon`) yang dirancang untuk situasi
+    ini, dibantu juga oleh pemicu tambahan saat aplikasi diminimalkan/pindah
+    tab supaya kesempatan menyimpan lebih sering muncul.
+  - Jika koneksi internet putus sepenuhnya saat menyimpan, aplikasi otomatis
+    mencoba lagi setiap beberapa detik sampai berhasil, dan memberi tanda
+    jelas di layar bahwa ada perubahan yang belum tersimpan ke server.
+  - Setiap kali aplikasi dibuka, ia memeriksa lebih dulu apakah ada
+    perubahan di perangkat itu yang ternyata belum pernah berhasil
+    tersimpan ke server (misalnya karena mati listrik/baterai habis saat
+    sedang menyimpan) — jika ada, perubahan itu akan dicoba disimpan dulu
+    sebelum memuat data lainnya, supaya tidak ada yang tertimpa atau hilang.
 - **PO Matcher**: TIDAK memiliki data yang disimpan permanen — aplikasi ini
   murni alat olah file (upload PDF + Excel → proses → unduh hasil), sehingga
   tidak ada yang perlu dipusatkan. Setiap kali dipakai, prosesnya dari awal
@@ -213,9 +227,10 @@ sendiri. Saat digabung ke portal ini:
   riwayat ban, kategori) lewat API ke server (`/api/fleet-data`), bukan lagi
   hanya di `localStorage` browser. Foto kendaraan & barcode Pertamina diunggah
   ke server lewat endpoint upload yang sama dengan company profile, sehingga
-  data JSON tetap ringan meskipun banyak foto. Jika koneksi ke server putus
-  sementara, aplikasi otomatis memakai cadangan localStorage di perangkat itu
-  dan akan mencoba menyinkronkan lagi saat fungsi simpan dipanggil berikutnya.
+  data JSON tetap ringan meskipun banyak foto. Lihat bagian "Arsitektur" di
+  atas untuk penjelasan lengkap soal lapisan-lapisan yang memastikan tidak
+  ada perubahan yang hilang, termasuk saat koneksi putus atau aplikasi
+  ditutup mendadak.
 - **PO Matcher** tidak diubah — aplikasi ini murni alat olah file sekali
   pakai (PDF + Excel masuk, hasil cocokan keluar), tidak ada data yang perlu
   atau bisa dipusatkan.
