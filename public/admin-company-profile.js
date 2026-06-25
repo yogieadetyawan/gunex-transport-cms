@@ -55,26 +55,11 @@
     sendPreviewUpdate();
   });
 
-  // ---------- Auth ----------
-  async function checkSession() {
-    const res = await fetch('/api/auth/me');
-    const data = await res.json();
-    if (data.ok && data.loggedIn) {
-      showAdmin();
-      await loadContent();
-      maybeShowTour();
-    } else {
-      showLogin();
-    }
-  }
-  function showLogin() {
-    $('#loginScreen').style.display = 'flex';
-    $('#adminShell').classList.remove('active');
-  }
-  function showAdmin() {
-    $('#loginScreen').style.display = 'none';
-    $('#adminShell').classList.add('active');
-  }
+  // ---------- Inisialisasi ----------
+  // Halaman ini hanya bisa diakses setelah login (server akan redirect ke /admin
+  // kalau sesi belum ada — lihat requireAuthPage di server/auth.js), sehingga di
+  // sini TIDAK perlu cek session atau tampilkan form login lagi. Cukup langsung
+  // muat konten begitu halaman terbuka.
   function maybeShowTour() {
     if (localStorage.getItem('gunex_admin_tour_seen')) return;
     $('#tourOverlay').classList.add('show');
@@ -84,40 +69,10 @@
     $('#tourOverlay').classList.remove('show');
   });
 
-  $('#loginForm').addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const btn = $('#loginBtn');
-    const errBox = $('#loginError');
-    errBox.style.display = 'none';
-    btn.disabled = true;
-    btn.textContent = 'Memproses...';
-    try {
-      const res = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username: $('#username').value.trim(), password: $('#password').value })
-      });
-      const data = await res.json();
-      if (data.ok) {
-        showAdmin();
-        await loadContent();
-        maybeShowTour();
-      } else {
-        errBox.textContent = data.error || 'Nama pengguna atau kata sandi salah.';
-        errBox.style.display = 'block';
-      }
-    } catch (err) {
-      errBox.textContent = 'Tidak dapat terhubung ke server. Coba lagi sebentar.';
-      errBox.style.display = 'block';
-    }
-    btn.disabled = false;
-    btn.textContent = 'Masuk';
-  });
-
   $('#logoutBtn').addEventListener('click', async () => {
     if (dirty && !confirm('Ada perubahan yang belum disimpan. Tetap keluar tanpa menyimpan?')) return;
     await fetch('/api/auth/logout', { method: 'POST' });
-    location.reload();
+    window.location.href = '/admin';
   });
 
   // ---------- Load content & render sidebar selection ----------
@@ -575,5 +530,5 @@
     if (dirty) { e.preventDefault(); e.returnValue = ''; }
   });
 
-  checkSession();
+  loadContent().then(maybeShowTour);
 })();
