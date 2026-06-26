@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Statistik Pengunjung — Gunex Transport</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=Work+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/admin.css">
+<link rel="stylesheet" href="/admin-stats.css">
+</head>
+<body>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="gunex-mark" viewBox="0 0 64 64">
+    <rect x="2" y="2" width="60" height="60" rx="14" fill="#1d3d87"/>
+    <line x1="7" y1="27" x2="17" y2="27" stroke="#fff" stroke-width="2.6" stroke-linecap="round"/>
+    <line x1="5" y1="34" x2="15" y2="34" stroke="#fff" stroke-width="2.6" stroke-linecap="round"/>
+    <line x1="8" y1="41" x2="16" y2="41" stroke="#fff" stroke-width="2.6" stroke-linecap="round"/>
+    <rect x="18" y="22" width="21" height="19" rx="2.5" fill="#fff"/>
+    <path d="M39 28 h8 l6 6 v7 h-14 z" fill="#fff"/>
+    <rect x="44" y="30" width="6" height="5" rx="1" fill="#1d3d87"/>
+    <circle cx="25" cy="45" r="4.2" fill="#fff" stroke="#1d3d87" stroke-width="2.2"/>
+    <circle cx="46" cy="45" r="4.2" fill="#fff" stroke="#1d3d87" stroke-width="2.2"/>
+  </symbol>
+</svg>
+
+<div class="stats-shell">
+  <div class="stats-topbar">
+    <div class="topbar-left">
+      <a href="/admin" class="back-btn" title="Kembali ke Menu Utama">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+      </a>
+      <svg class="logo-icon" style="width:30px;height:30px;"><use href="#gunex-mark"/></svg>
+      <span class="logo-word" style="font-size:.95rem;">STATISTIK PENGUNJUNG</span>
+    </div>
+    <button class="btn-top" id="logoutBtn">Keluar</button>
+  </div>
+
+  <div class="stats-main" id="statsMain">
+    <div class="loading-state">Memuat statistik…</div>
+  </div>
+</div>
+
+<script src="/admin-stats.js"></script>
+</body>
+</html>

@@ -196,7 +196,7 @@
           <div class="contact-info">
             <div class="contact-item">
               ${PIN_OUTLINE.replace('class="pin"', 'class="ic"')}
-              <div><h4>Alamat Kantor</h4><p>${esc(contact.address)}<br><span style="opacity:.6">${esc(contact.addressNote)}</span></p></div>
+              <div><h4>Alamat Kantor</h4><p>${esc(contact.address)}</p></div>
             </div>
             <div class="contact-item">
               <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 5h4l2 5-2.5 1.5a11 11 0 0 0 5 5L13 14l5 2v4a2 2 0 0 1-2 2C9.5 22 2 14.5 2 7a2 2 0 0 1 1-2z"/></svg>
@@ -212,16 +212,17 @@
             </div>
           </div>
           <form class="contact-form" id="contactForm">
-            <div class="frow"><label>Nama Perusahaan</label><input type="text" placeholder="PT. Nama Perusahaan Anda" required></div>
-            <div class="frow"><label>Nama Penanggung Jawab</label><input type="text" placeholder="Nama lengkap" required></div>
-            <div class="frow"><label>Email / No. Telepon</label><input type="text" placeholder="email@perusahaan.com" required></div>
+            <div class="frow"><label>Nama Perusahaan</label><input type="text" id="cfCompany" placeholder="PT. Nama Perusahaan Anda" required></div>
+            <div class="frow"><label>Nama Penanggung Jawab</label><input type="text" id="cfContactName" placeholder="Nama lengkap" required></div>
+            <div class="frow"><label>Email / No. Telepon</label><input type="text" id="cfContactInfo" placeholder="email@perusahaan.com" required></div>
             <div class="frow"><label>Kebutuhan Armada</label>
-              <select>
+              <select id="cfFleetNeed">
                 <option>CDD Standard</option><option>CDD Long</option><option>Fuso Bak</option><option>Fuso Losbak</option><option>Belum yakin, perlu konsultasi</option>
               </select>
             </div>
-            <div class="frow"><label>Detail Kebutuhan</label><textarea placeholder="Ceritakan rute, volume, dan frekuensi pengiriman yang dibutuhkan"></textarea></div>
-            <button type="submit" class="btn btn-primary" style="width:100%;justify-content:center;">Kirim Permintaan</button>
+            <div class="frow"><label>Detail Kebutuhan</label><textarea id="cfDetail" placeholder="Ceritakan rute, volume, dan frekuensi pengiriman yang dibutuhkan"></textarea></div>
+            <div id="cfError" style="display:none;font-size:.82rem;color:#d44;margin-bottom:10px;"></div>
+            <button type="submit" class="btn btn-primary" id="cfSubmitBtn" style="width:100%;justify-content:center;">Kirim Permintaan</button>
           </form>
         </div>
       </div>
@@ -246,10 +247,50 @@
 
     const form = document.getElementById('contactForm');
     if (form) {
-      form.addEventListener('submit', (e) => {
+      form.addEventListener('submit', async (e) => {
         e.preventDefault();
-        const btn = form.querySelector('.btn');
-        btn.textContent = 'Terkirim ✓';
+        const btn = document.getElementById('cfSubmitBtn');
+        const errBox = document.getElementById('cfError');
+        errBox.style.display = 'none';
+
+        const payload = {
+          company: document.getElementById('cfCompany').value.trim(),
+          contactName: document.getElementById('cfContactName').value.trim(),
+          contactInfo: document.getElementById('cfContactInfo').value.trim(),
+          fleetNeed: document.getElementById('cfFleetNeed').value,
+          detail: document.getElementById('cfDetail').value.trim()
+        };
+        if (!payload.company || !payload.contactName || !payload.contactInfo) {
+          errBox.textContent = 'Mohon lengkapi nama perusahaan, nama penanggung jawab, dan kontak.';
+          errBox.style.display = 'block';
+          return;
+        }
+
+        btn.disabled = true;
+        btn.textContent = 'Mengirim...';
+        try {
+          const res = await fetch('/api/contact-messages', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+          });
+          const data = await res.json();
+          if (data.ok) {
+            btn.textContent = 'Terkirim ✓';
+            form.reset();
+            setTimeout(() => { btn.textContent = 'Kirim Permintaan'; btn.disabled = false; }, 3000);
+          } else {
+            errBox.textContent = data.error || 'Gagal mengirim permintaan. Coba lagi sebentar.';
+            errBox.style.display = 'block';
+            btn.disabled = false;
+            btn.textContent = 'Kirim Permintaan';
+          }
+        } catch (err) {
+          errBox.textContent = 'Tidak dapat terhubung ke server. Coba lagi sebentar.';
+          errBox.style.display = 'block';
+          btn.disabled = false;
+          btn.textContent = 'Kirim Permintaan';
+        }
       });
     }
 
@@ -393,6 +434,15 @@
           const h = document.body.scrollHeight;
           window.parent.postMessage({ type: 'GUNEX_PREVIEW_HEIGHT', height: h }, '*');
         });
+        // Catat kunjungan HANYA untuk pemuatan halaman publik sungguhan -
+        // bukan saat dimuat di iframe pratinjau admin (yang akan terpicu
+        // berulang kali setiap admin mengetik, dan bukan kunjungan pengunjung
+        // sesungguhnya). Kegagalan mencatat tidak ditampilkan ke pengunjung
+        // sama sekali - statistik adalah hal sekunder, bukan boleh mengganggu
+        // pengalaman memuat halaman.
+        if (!inIframe) {
+          fetch('/api/stats/visit', { method: 'POST' }).catch(() => {});
+        }
       } else {
         app.innerHTML = '<div class="wrap" style="padding:140px 0;text-align:center;color:#5f7290;">Gagal memuat konten. Silakan refresh halaman.</div>';
       }

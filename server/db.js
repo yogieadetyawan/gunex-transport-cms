@@ -10,6 +10,8 @@ const USERS_FILE = path.join(DATA_DIR, 'users.json');
 const FLEET_FILE = path.join(DATA_DIR, 'fleet.json');
 const FLEET_DEFAULT_FILE = path.join(DATA_DIR, 'fleet.default.json');
 const FLEET_PIN_FILE = path.join(DATA_DIR, 'fleet-pin.json');
+const MESSAGES_FILE = path.join(DATA_DIR, 'messages.json');
+const STATS_FILE = path.join(DATA_DIR, 'stats.json');
 
 const DEFAULT_USERNAME = 'admin';
 const DEFAULT_PASSWORD = 'gunex2008admin';
@@ -181,9 +183,104 @@ function writeFleetPin(obj) {
   fs.renameSync(tmp, FLEET_PIN_FILE);
 }
 
+// --- Pesan dari form "Hubungi Kami" di halaman publik ---
+// Disimpan sebagai array pesan, terbaru di awal. Dibatasi MAX_MESSAGES agar
+// file tidak membesar tanpa batas jika form disalahgunakan/spam dalam waktu
+// lama tanpa admin pernah menghapusnya - pesan tertua otomatis dibuang saat
+// melebihi batas, bukan dihapus diam-diam sebelum admin sempat membacanya
+// (batasnya cukup besar untuk pemakaian wajar).
+const MAX_MESSAGES = 500;
+
+function ensureMessagesFile() {
+  ensureDataDir();
+  if (!fs.existsSync(MESSAGES_FILE)) {
+    fs.writeFileSync(MESSAGES_FILE, JSON.stringify([], null, 2), 'utf-8');
+  }
+}
+
+function readMessages() {
+  ensureMessagesFile();
+  try {
+    const data = JSON.parse(fs.readFileSync(MESSAGES_FILE, 'utf-8'));
+    return Array.isArray(data) ? data : [];
+  } catch (e) {
+    console.error('[messages] Gagal membaca messages.json, mengembalikan daftar kosong:', e.message);
+    return [];
+  }
+}
+
+function writeMessages(arr) {
+  ensureDataDir();
+  const trimmed = arr.slice(0, MAX_MESSAGES);
+  const tmp = MESSAGES_FILE + '.tmp';
+  fs.writeFileSync(tmp, JSON.stringify(trimmed, null, 2), 'utf-8');
+  fs.renameSync(tmp, MESSAGES_FILE);
+}
+
+function addMessage(msg) {
+  const all = readMessages();
+  all.unshift(msg); // pesan terbaru di awal, supaya admin lihat yang terbaru duluan
+  writeMessages(all);
+  return msg;
+}
+
+// --- Statistik kunjungan halaman publik ---
+// Diagregasi PER HARI (bukan per-kunjungan sebagai record terpisah selamanya),
+// supaya file tetap kecil walau dipakai bertahun-tahun. Struktur:
+// { totalAllTime: number, byDate: { "2026-06-26": number, ... } }
+function ensureStatsFile() {
+  ensureDataDir();
+  if (!fs.existsSync(STATS_FILE)) {
+    fs.writeFileSync(STATS_FILE, JSON.stringify({ totalAllTime: 0, byDate: {} }, null, 2), 'utf-8');
+  }
+}
+
+function readStats() {
+  ensureStatsFile();
+  try {
+    const data = JSON.parse(fs.readFileSync(STATS_FILE, 'utf-8'));
+    if (typeof data.totalAllTime !== 'number' || typeof data.byDate !== 'object' || data.byDate === null) {
+      return { totalAllTime: 0, byDate: {} };
+    }
+    return data;
+  } catch (e) {
+    console.error('[stats] Gagal membaca stats.json, mengembalikan statistik kosong:', e.message);
+    return { totalAllTime: 0, byDate: {} };
+  }
+}
+
+function writeStats(obj) {
+  ensureDataDir();
+  const tmp = STATS_FILE + '.tmp';
+  fs.writeFileSync(tmp, JSON.stringify(obj, null, 2), 'utf-8');
+  fs.renameSync(tmp, STATS_FILE);
+}
+
+// Menambah satu hitungan kunjungan untuk tanggal hari ini (format YYYY-MM-DD,
+// dihitung di server agar konsisten apapun zona waktu perangkat pengunjung).
+// Otomatis membersihkan entri byDate yang lebih tua dari 400 hari agar ukuran
+// file tetap wajar dalam pemakaian jangka panjang (lebih dari setahun data
+// harian, cukup untuk laporan tahunan, tapi tidak menumpuk selamanya).
+function recordVisit() {
+  const stats = readStats();
+  const today = new Date().toISOString().slice(0, 10);
+  stats.totalAllTime = (stats.totalAllTime || 0) + 1;
+  stats.byDate[today] = (stats.byDate[today] || 0) + 1;
+
+  const cutoff = Date.now() - 400 * 24 * 60 * 60 * 1000;
+  for (const dateKey of Object.keys(stats.byDate)) {
+    const t = new Date(dateKey + 'T00:00:00Z').getTime();
+    if (!isNaN(t) && t < cutoff) delete stats.byDate[dateKey];
+  }
+  writeStats(stats);
+  return stats;
+}
+
 module.exports = {
   readContent, writeContent, resetContent, readUsers, writeUsers,
   readFleetData, writeFleetData, resetFleetData,
   readFleetPin, writeFleetPin,
+  readMessages, writeMessages, addMessage,
+  readStats, writeStats, recordVisit,
   CONTENT_FILE, USERS_FILE, FLEET_FILE, DEFAULT_USERNAME, DEFAULT_PASSWORD
 };

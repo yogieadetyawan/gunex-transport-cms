@@ -14,6 +14,44 @@
     hideBootLoading();
     $('#loginScreen').classList.remove('show');
     $('#portalShell').classList.add('active');
+    loadUnreadMessageCount();
+  }
+
+  // Dipanggil saat sesi PIN terbatas kembali ke /admin (misal klik tombol
+  // "kembali" di Gunex Fleet). Menampilkan pesan jelas + menyembunyikan kartu
+  // yang memang tidak bisa dibuka sesi ini, daripada memantulkan otomatis
+  // kembali ke Gunex Fleet (yang membuat tombol "kembali" terlihat tidak
+  // bereaksi sama sekali).
+  function showFleetOnlyNotice() {
+    const notice = $('#fleetOnlyNotice');
+    const cardCompany = $('#cardCompanyProfile');
+    const cardPo = $('#cardPoMatcher');
+    const cardStats = $('#cardStats');
+    const cardMessages = $('#cardMessages');
+    if (notice) notice.style.display = 'flex';
+    if (cardCompany) cardCompany.style.display = 'none';
+    if (cardPo) cardPo.style.display = 'none';
+    if (cardStats) cardStats.style.display = 'none';
+    if (cardMessages) cardMessages.style.display = 'none';
+  }
+
+  // Tampilkan jumlah pesan belum dibaca sebagai badge kecil di kartu "Pesan",
+  // supaya admin langsung tahu ada permintaan baru tanpa perlu membuka menu
+  // itu dulu. Diam-diam diabaikan jika gagal (bukan hal kritis untuk portal).
+  async function loadUnreadMessageCount() {
+    try {
+      const res = await fetch('/api/contact-messages');
+      if (!res.ok) return;
+      const data = await res.json();
+      if (data.ok) {
+        const unread = data.messages.filter(m => !m.read).length;
+        const badge = $('#unreadBadge');
+        if (badge && unread > 0) {
+          badge.textContent = unread;
+          badge.style.display = 'inline-block';
+        }
+      }
+    } catch (e) { /* abaikan, ini bukan hal kritis */ }
   }
 
   async function checkSession() {
@@ -22,10 +60,16 @@
       const data = await res.json();
       if (data.ok && data.loggedIn) {
         if (data.fleetOnly) {
-          // Sesi PIN hanya berguna untuk Gunex Fleet - langsung arahkan ke sana
-          // daripada menampilkan portal dengan 3 pilihan menu yang 2 di antaranya
-          // pasti akan gagal/redirect balik jika diklik oleh sesi terbatas ini.
-          window.location.href = '/admin/gunex-fleet';
+          // Sesi PIN hanya berguna untuk Gunex Fleet. Saat PERTAMA login lewat
+          // PIN, langsung arahkan ke sana (lihat handler #pinForm di bawah).
+          // TAPI jika pengguna kembali ke /admin secara sengaja (klik tombol
+          // "kembali" di Gunex Fleet, atau ketik /admin manual), JANGAN
+          // dipantulkan otomatis lagi ke Gunex Fleet — itu membuat tombol
+          // "kembali" terlihat tidak bereaksi sama sekali. Sebagai gantinya,
+          // tampilkan portal dalam mode terbatas: jelaskan kondisinya dan
+          // beri tombol untuk keluar dari sesi PIN.
+          showPortal();
+          showFleetOnlyNotice();
           return;
         }
         showPortal();

@@ -53,6 +53,10 @@
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="11" width="18" height="10" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
       Akses cepat Gunex Fleet dengan PIN
     </button>
+    <a href="/po-matcher" class="pin-quick-link" style="text-decoration:none;margin-top:6px;">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/></svg>
+      Buka PO Matcher (tanpa login)
+    </a>
   </div>
 
   <!-- PANEL PIN: akses cepat khusus Gunex Fleet, terpisah dari login biasa -->
@@ -95,13 +99,22 @@
   </div>
 
   <div class="portal-main">
-    <div class="portal-heading">
+    <div class="portal-heading" id="portalHeading">
       <h1>Portal Admin</h1>
       <p>Pilih salah satu aplikasi di bawah untuk mulai bekerja.</p>
     </div>
 
-    <div class="menu-grid">
-      <a href="/admin/company-profile" class="menu-card card-company">
+    <!-- Tampil HANYA untuk sesi akses cepat PIN (lihat showFleetOnlyNotice di admin.js) -->
+    <div class="fleet-only-notice" id="fleetOnlyNotice" style="display:none;">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="11" width="18" height="10" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+      <div>
+        <div class="fleet-only-notice-title">Sesi akses cepat PIN</div>
+        <div class="fleet-only-notice-desc">Anda masuk lewat PIN khusus Gunex Fleet, sehingga hanya aplikasi itu yang bisa dibuka. Untuk mengakses Kelola Company Profile atau PO Matcher, keluar dulu lalu masuk dengan nama pengguna &amp; kata sandi.</div>
+      </div>
+    </div>
+
+    <div class="menu-grid" id="menuGrid">
+      <a href="/admin/company-profile" class="menu-card card-company" id="cardCompanyProfile">
         <span class="accent"></span>
         <span class="badge">WEBSITE</span>
         <div class="icon-wrap">
@@ -127,7 +140,7 @@
         </span>
       </a>
 
-      <a href="/admin/po-matcher" class="menu-card card-po">
+      <a href="/admin/po-matcher" class="menu-card card-po" id="cardPoMatcher">
         <span class="accent"></span>
         <span class="badge" style="background:#fff3e6;color:#c97f00;">DOKUMEN</span>
         <div class="icon-wrap">
@@ -135,6 +148,32 @@
         </div>
         <h2>PO Matcher</h2>
         <p>Cocokkan nomor surat jalan dari PO (PDF) dengan data tagihan Excel secara otomatis.</p>
+        <span class="go">Buka aplikasi
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+        </span>
+      </a>
+
+      <a href="/admin/stats" class="menu-card card-stats" id="cardStats">
+        <span class="accent" style="background:#7c3aed;"></span>
+        <span class="badge" style="background:#f3ebff;color:#7c3aed;">PENGUNJUNG</span>
+        <div class="icon-wrap" style="background:#f3ebff;color:#7c3aed;">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 3v18h18"/><path d="M7 16l4-5 3 3 5-7"/></svg>
+        </div>
+        <h2>Statistik</h2>
+        <p>Lihat berapa kali website Anda dikunjungi, hari ini maupun secara keseluruhan.</p>
+        <span class="go">Buka aplikasi
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+        </span>
+      </a>
+
+      <a href="/admin/messages" class="menu-card card-messages" id="cardMessages">
+        <span class="accent" style="background:#e11d48;"></span>
+        <span class="badge" style="background:#ffe4e9;color:#e11d48;">KOTAK MASUK</span>
+        <div class="icon-wrap" style="background:#ffe4e9;color:#e11d48;">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 7l9 6 9-6"/><rect x="3" y="5" width="18" height="14" rx="2"/></svg>
+        </div>
+        <h2>Pesan <span id="unreadBadge" style="display:none;background:#e11d48;color:#fff;font-size:.7rem;padding:1px 7px;border-radius:10px;margin-left:4px;vertical-align:middle;"></span></h2>
+        <p>Lihat permintaan kerja sama yang dikirim pengunjung lewat formulir "Hubungi Kami".</p>
         <span class="go">Buka aplikasi
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
         </span>

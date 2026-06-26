@@ -216,7 +216,6 @@ const EMBEDDED_DEFAULT_CONTENT = {
     "headline": "Mari Bicarakan Kebutuhan Distribusi Perusahaan Anda",
     "lede": "Tim kami siap membantu memetakan rute, kapasitas, dan jadwal armada yang paling sesuai dengan skala operasional bisnis Anda.",
     "address": "Kab. Tangerang, Banten, Indonesia",
-    "addressNote": "(lengkapi alamat lengkap kantor operasional)",
     "phone": "(isi nomor kontak operasional Anda)",
     "email": "(isi alamat email perusahaan)",
     "hours": "Senin – Sabtu, 08.00 – 17.00 WIB"

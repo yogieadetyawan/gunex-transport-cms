@@ -66,6 +66,16 @@ input{font-family:inherit;}
 }
 .pin-digit:focus{outline:none;border-color:var(--blue);background:#fff;}
 
+/* Notice di portal saat sesi terbatas PIN klik 'kembali' dari Gunex Fleet */
+.fleet-only-notice{
+  display:flex;gap:14px;align-items:flex-start;max-width:620px;margin:0 auto 32px;
+  background:#fff8e6;border:1px solid #f3dca0;border-radius:12px;padding:16px 18px;
+  text-align:left;
+}
+.fleet-only-notice svg{width:22px;height:22px;flex-shrink:0;color:#a9790a;margin-top:1px;}
+.fleet-only-notice-title{font-weight:700;color:#8a6404;font-size:.92rem;margin-bottom:4px;}
+.fleet-only-notice-desc{font-size:.85rem;color:#7a5c1f;line-height:1.55;}
+
 /* ===== Portal menu shell ===== */
 .portal-shell{display:none;min-height:100vh;flex-direction:column;}
 .portal-shell.active{display:flex;}

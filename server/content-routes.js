@@ -2,7 +2,7 @@ const express = require('express');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
-const { readContent, writeContent, resetContent, readFleetData, writeFleetData, resetFleetData } = require('./db');
+const { readContent, writeContent, resetContent, readFleetData, writeFleetData, resetFleetData, readFleetPin, writeFleetPin, readMessages, writeMessages, addMessage, readStats, recordVisit } = require('./db');
 const { requireAuth, requireFleetAccess } = require('./auth');
 const EMBEDDED_DEFAULT_CONTENT = require('./default-content');
 
@@ -201,6 +201,134 @@ router.post('/fleet-data/beacon', requireFleetAccess, (req, res) => {
   } catch (e) {
     console.error('[beacon] Gagal menyimpan data armada darurat:', e);
     res.status(500).end();
+  }
+});
+
+// ===== Pesan dari form "Hubungi Kami" di halaman publik =====
+// POST dibuka untuk publik (tidak butuh login - dipakai pengunjung biasa),
+// TAPI dibatasi rate limit per-IP untuk cegah spam (3 pesan/10 menit/IP -
+// cukup longgar untuk pengunjung wajar yang mungkin mengirim ulang setelah
+// memperbaiki isian, tapi mencegah bot mengirim ratusan pesan sekaligus).
+// GET wajib login - ini kotak masuk perusahaan, bukan untuk konsumsi publik.
+const MESSAGE_MAX_PER_WINDOW = 3;
+const MESSAGE_WINDOW_MS = 10 * 60 * 1000;
+const messageRateMap = new Map();
+function getClientIpForRate(req) {
+  const fwd = req.headers['x-forwarded-for'];
+  if (fwd) return fwd.split(',')[0].trim();
+  return req.ip || (req.socket && req.socket.remoteAddress) || 'unknown';
+}
+function isMessageRateLimited(ip) {
+  const now = Date.now();
+  const entry = messageRateMap.get(ip);
+  if (!entry || now - entry.firstAt > MESSAGE_WINDOW_MS) {
+    messageRateMap.set(ip, { count: 1, firstAt: now });
+    return false;
+  }
+  entry.count += 1;
+  return entry.count > MESSAGE_MAX_PER_WINDOW;
+}
+setInterval(() => {
+  const now = Date.now();
+  for (const [ip, entry] of messageRateMap.entries()) {
+    if (now - entry.firstAt > MESSAGE_WINDOW_MS) messageRateMap.delete(ip);
+  }
+}, 30 * 60 * 1000);
+
+function escapeForStorage(val) {
+  return typeof val === 'string' ? val.trim().slice(0, 2000) : '';
+}
+
+router.post('/contact-messages', (req, res) => {
+  const ip = getClientIpForRate(req);
+  if (isMessageRateLimited(ip)) {
+    return res.status(429).json({ ok: false, error: 'Terlalu banyak pesan terkirim dalam waktu singkat. Coba lagi beberapa menit lagi.' });
+  }
+  const body = req.body || {};
+  const company = escapeForStorage(body.company);
+  const contactName = escapeForStorage(body.contactName);
+  const contactInfo = escapeForStorage(body.contactInfo);
+  const fleetNeed = escapeForStorage(body.fleetNeed);
+  const detail = escapeForStorage(body.detail);
+
+  if (!company || !contactName || !contactInfo) {
+    return res.status(400).json({ ok: false, error: 'Nama perusahaan, nama penanggung jawab, dan kontak wajib diisi.' });
+  }
+
+  const msg = {
+    id: 'msg_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8),
+    company, contactName, contactInfo, fleetNeed, detail,
+    createdAt: new Date().toISOString(),
+    read: false
+  };
+  try {
+    addMessage(msg);
+    res.json({ ok: true });
+  } catch (e) {
+    console.error('[contact-messages] Gagal menyimpan pesan:', e);
+    res.status(500).json({ ok: false, error: 'Gagal menyimpan pesan. Coba lagi sebentar.' });
+  }
+});
+
+router.get('/contact-messages', requireAuth, (req, res) => {
+  try {
+    res.json({ ok: true, messages: readMessages() });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: 'Gagal memuat pesan.' });
+  }
+});
+
+router.post('/contact-messages/:id/read', requireAuth, (req, res) => {
+  try {
+    const all = readMessages();
+    const target = all.find(m => m.id === req.params.id);
+    if (!target) return res.status(404).json({ ok: false, error: 'Pesan tidak ditemukan.' });
+    target.read = true;
+    writeMessages(all);
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: 'Gagal memperbarui status pesan.' });
+  }
+});
+
+router.delete('/contact-messages/:id', requireAuth, (req, res) => {
+  try {
+    const all = readMessages();
+    const filtered = all.filter(m => m.id !== req.params.id);
+    writeMessages(filtered);
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: 'Gagal menghapus pesan.' });
+  }
+});
+
+// ===== Statistik kunjungan halaman publik =====
+// POST /stats/visit dipanggil otomatis oleh app.js setiap kali halaman publik
+// dimuat - dibuka untuk publik (tanpa login), TIDAK divalidasi rate limit
+// per-IP karena ini memang dimaksudkan terpanggil di setiap kunjungan wajar.
+// Permintaan dengan User-Agent yang jelas menunjukkan bot/crawler diabaikan
+// (tidak dihitung), supaya statistik mencerminkan pengunjung manusia.
+const BOT_UA_PATTERN = /bot|crawl|spider|slurp|facebookexternalhit|whatsapp|telegrambot|preview/i;
+
+router.post('/stats/visit', (req, res) => {
+  const ua = req.headers['user-agent'] || '';
+  if (BOT_UA_PATTERN.test(ua)) {
+    return res.json({ ok: true, counted: false });
+  }
+  try {
+    recordVisit();
+    res.json({ ok: true, counted: true });
+  } catch (e) {
+    console.error('[stats] Gagal mencatat kunjungan:', e);
+    res.json({ ok: true, counted: false });
+  }
+});
+
+router.get('/stats', requireAuth, (req, res) => {
+  try {
+    res.json({ ok: true, stats: readStats() });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: 'Gagal memuat statistik.' });
   }
 });
 

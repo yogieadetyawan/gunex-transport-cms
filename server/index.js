@@ -161,6 +161,27 @@ app.get('/admin/po-matcher', cspLegacyApps, requireAuthPage, (req, res) => {
   res.sendFile(path.join(__dirname, '..', 'protected-apps', 'po-matcher.html'));
 });
 
+// Akses cepat PUBLIK ke PO Matcher TANPA login/PIN sama sekali (berbeda dari
+// /admin/po-matcher di atas). Ini SENGAJA dibuat karena PO Matcher murni alat
+// olah file di sisi BROWSER PENGGUNA - tidak pernah memanggil API server,
+// tidak menyimpan apapun ke server, dan tidak menyimpan ke localStorage.
+// Seluruh proses (OCR, pencocokan, generate hasil) terjadi di perangkat
+// pengguna sendiri; file hasil diunduh langsung dari browser. Tidak ada data
+// perusahaan yang tersimpan atau terekspos lewat route ini - berbeda dengan
+// Gunex Fleet (data armada tersimpan di server, karena itu tetap pakai PIN)
+// dan Company Profile/Statistik/Pesan (data sensitif, tetap wajib login penuh).
+app.get('/po-matcher', cspLegacyApps, (req, res) => {
+  res.sendFile(path.join(__dirname, '..', 'protected-apps', 'po-matcher.html'));
+});
+
+app.get('/admin/stats', cspStrict, requireAuthPage, (req, res) => {
+  res.sendFile(path.join(__dirname, '..', 'public', 'admin-stats.html'));
+});
+
+app.get('/admin/messages', cspStrict, requireAuthPage, (req, res) => {
+  res.sendFile(path.join(__dirname, '..', 'public', 'admin-messages.html'));
+});
+
 app.get('/', cspStrict, (req, res) => {
   res.sendFile(path.join(__dirname, '..', 'public', 'index.html'));
 });
