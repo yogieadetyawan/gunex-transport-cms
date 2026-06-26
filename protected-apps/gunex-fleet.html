@@ -917,7 +917,7 @@ function handlePhotoInputChange(fieldKey, inputEl){
 
   const formData = new FormData();
   formData.append('image', file);
-  fetch('/api/upload', { method: 'POST', body: formData })
+  fetch('/api/fleet-upload', { method: 'POST', body: formData })
     .then(res => {
       if(res.status === 401){
         window.location.href = '/admin';
@@ -3272,6 +3272,19 @@ function restoreBackup(file){
 }
 
 function openSettingsSheet(){
+  const pinSectionHtml = isFleetOnlySession ? '' : `
+    <div class="divider-label"><span>Akses Cepat PIN</span></div>
+    <div class="field-hint" style="line-height:1.7; margin-bottom:14px;">
+      Atur PIN 6-digit untuk membuka Gunex Fleet langsung dari halaman login,
+      tanpa perlu mengetik nama pengguna &amp; kata sandi setiap kali.
+      PIN ini HANYA bisa membuka Gunex Fleet — tidak bisa mengakses Kelola
+      Company Profile, PO Matcher, atau mengganti PIN itu sendiri.
+    </div>
+    <button class="btn" onclick="openSetPinSheet()">
+      <svg viewBox="0 0 24 24" fill="none"><rect x="3" y="11" width="18" height="10" rx="2" stroke="currentColor" stroke-width="1.7"/><path d="M7 11V7a5 5 0 0 1 10 0v4" stroke="currentColor" stroke-width="1.7"/></svg>
+      Atur / Ganti PIN
+    </button>
+  `;
   const html = sheetWrap('Pengaturan', `
     <div class="detail-row"><span class="dl">Total Kendaraan</span><span class="dv">${DB.vehicles.length}</span></div>
     <div class="detail-row"><span class="dl">Total Record Service</span><span class="dv">${DB.services.length}</span></div>
@@ -3281,16 +3294,19 @@ function openSettingsSheet(){
       <svg viewBox="0 0 24 24" fill="none"><path d="M20 7h-9M14 17H5M17 4v6M7 14v6" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/><circle cx="17" cy="7" r="2" stroke="currentColor" stroke-width="1.7"/><circle cx="7" cy="17" r="2" stroke="currentColor" stroke-width="1.7"/></svg>
       Kelola Kategori Kendaraan
     </button>
+    ${pinSectionHtml}
     <div class="divider-label"><span>Tentang</span></div>
     <div class="field-hint" style="line-height:1.7; margin-bottom:16px;">
       GUNEX FLEET — Aplikasi pendataan service &amp; ban kendaraan untuk Gunex Transport Indonesia.
-      Seluruh data tersimpan secara lokal di perangkat ini (offline), tidak terkirim ke server manapun.
-      Gunakan menu Export &amp; Backup secara berkala untuk mengamankan data Anda.
+      Data tersimpan terpusat di server, sehingga bisa diakses dari perangkat manapun setelah login.
+      Jika koneksi internet sedang putus, perubahan tetap tersimpan sementara di perangkat ini
+      dan otomatis tersinkron begitu koneksi pulih.
     </div>
+    ${isFleetOnlySession ? '' : `
     <button class="btn btn-danger" onclick="confirmWipeAll()">
       <svg viewBox="0 0 24 24" fill="none"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0l-1 14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2L4 6" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
       Hapus Semua Data
-    </button>
+    </button>`}
   `);
   openSheet(html);
 }
@@ -3398,6 +3414,59 @@ function deleteCategoryConfirm(categoryId){
   if(currentTab === 'master') renderMasterList();
 }
 
+function openSetPinSheet(){
+  const html = sheetWrap('Atur PIN Akses Cepat', `
+    <div class="field-hint" style="margin-bottom:16px; line-height:1.6;">
+      Masukkan 6 digit PIN baru, lalu ulangi sekali lagi untuk konfirmasi.
+      PIN lama (jika ada) akan langsung tidak berlaku begitu PIN baru disimpan.
+    </div>
+    <div class="field">
+      <label class="field-label">PIN Baru <span class="req">*</span></label>
+      <input type="text" inputmode="numeric" maxlength="6" id="setPinNew" placeholder="6 digit angka" style="letter-spacing:.3em; font-size:1.1rem; text-align:center;">
+    </div>
+    <div class="field">
+      <label class="field-label">Ulangi PIN Baru <span class="req">*</span></label>
+      <input type="text" inputmode="numeric" maxlength="6" id="setPinConfirm" placeholder="6 digit angka" style="letter-spacing:.3em; font-size:1.1rem; text-align:center;">
+    </div>
+    <div id="setPinMsg" style="font-size:.82rem; margin-bottom:4px; min-height:18px;"></div>
+    <button class="btn btn-primary" style="margin-top:10px;" onclick="submitSetPin()">Simpan PIN</button>
+  `);
+  openSheet(html);
+  ['setPinNew', 'setPinConfirm'].forEach(id => {
+    document.getElementById(id).addEventListener('input', (e) => {
+      e.target.value = e.target.value.replace(/\D/g, '').slice(0, 6);
+    });
+  });
+}
+
+async function submitSetPin(){
+  const pin = document.getElementById('setPinNew').value;
+  const confirmPin = document.getElementById('setPinConfirm').value;
+  const msg = document.getElementById('setPinMsg');
+  if(pin.length !== 6){
+    msg.style.color = '#ff8080'; msg.textContent = 'PIN harus tepat 6 digit angka.'; return;
+  }
+  if(pin !== confirmPin){
+    msg.style.color = '#ff8080'; msg.textContent = 'PIN baru dan konfirmasi tidak sama.'; return;
+  }
+  try{
+    const res = await fetch('/api/auth/set-fleet-pin', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ newPin: pin })
+    });
+    const data = await res.json();
+    if(data.ok){
+      closeSheet();
+      showToast('PIN akses cepat berhasil disimpan');
+    } else {
+      msg.style.color = '#ff8080'; msg.textContent = data.error || 'Gagal menyimpan PIN.';
+    }
+  }catch(e){
+    msg.style.color = '#ff8080'; msg.textContent = 'Tidak dapat terhubung ke server.';
+  }
+}
+
 function confirmWipeAll(){
   if(!confirm('Tindakan ini akan menghapus SEMUA data kendaraan, service, dan ban secara permanen. Yakin lanjutkan?')) return;
   if(!confirm('Konfirmasi sekali lagi: hapus semua data sekarang?')) return;
@@ -3411,11 +3480,20 @@ function confirmWipeAll(){
 /* ============================================================
    INIT
    ============================================================ */
+let isFleetOnlySession = false; // true jika masuk lewat PIN (sesi terbatas), bukan login admin penuh
+
 function initApp(){
   if(window.MAINTENANCE_MODE){
     document.getElementById('maintOverlay').classList.add('active');
     return;
   }
+
+  // Deteksi jenis sesi SEKALI di awal — dipakai untuk menyembunyikan menu
+  // "Atur PIN" dari sesi yang masuk lewat PIN itu sendiri (mengganti PIN tetap
+  // wajib login admin penuh, sesuai pembatasan yang sudah ditegakkan di server).
+  fetch('/api/auth/me').then(r => r.json()).then(data => {
+    isFleetOnlySession = !!(data.ok && data.fleetOnly);
+  }).catch(() => {});
 
   // PENTING — urutan pemeriksaan ini sengaja dirancang untuk mencegah hilangnya
   // perubahan yang sempat tersimpan di localStorage tapi BELUM pernah berhasil

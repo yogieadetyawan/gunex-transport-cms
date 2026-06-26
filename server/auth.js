@@ -1,6 +1,6 @@
 const express = require('express');
 const bcrypt = require('bcryptjs');
-const { readUsers, writeUsers } = require('./db');
+const { readUsers, writeUsers, readFleetPin, writeFleetPin } = require('./db');
 
 const router = express.Router();
 
@@ -14,6 +14,25 @@ function requireAuth(req, res, next) {
 // yang tidak ada gunanya jika diakses langsung lewat browser/URL bar.
 function requireAuthPage(req, res, next) {
   if (req.session && req.session.isAdmin) return next();
+  return res.redirect('/admin');
+}
+
+// Middleware KHUSUS untuk Gunex Fleet: menerima DUA jenis sesi -
+// (1) sesi admin penuh (login username+password biasa), ATAU
+// (2) sesi terbatas yang dibuat lewat akses cepat PIN (req.session.fleetOnly).
+// Sesi PIN HANYA pernah diberi tanda fleetOnly, TIDAK PERNAH diberi isAdmin -
+// sehingga walau bisa membuka Gunex Fleet, sesi ini tetap diblokir oleh
+// requireAuth/requireAuthPage biasa dari mengakses Company Profile atau
+// PO Matcher. Ini sengaja dipisah agar PIN 6-digit (yang jauh lebih mudah
+// ditebak dibanding password biasa) tidak pernah jadi jalan pintas ke data
+// yang lebih sensitif.
+function requireFleetAccess(req, res, next) {
+  if (req.session && (req.session.isAdmin || req.session.fleetOnly)) return next();
+  return res.status(401).json({ ok: false, error: 'Belum login.' });
+}
+
+function requireFleetAccessPage(req, res, next) {
+  if (req.session && (req.session.isAdmin || req.session.fleetOnly)) return next();
   return res.redirect('/admin');
 }
 
@@ -71,6 +90,48 @@ setInterval(() => {
   }
 }, 30 * 60 * 1000);
 
+// Rate limit KHUSUS untuk PIN akses cepat Gunex Fleet - SENGAJA dibuat lebih
+// ketat daripada login biasa (5 percobaan per 15 menit, bukan 8 per 10 menit),
+// karena PIN 6-digit numerik (1 juta kemungkinan) jauh lebih lemah daripada
+// password bebas karakter. Key rate limit ini terpisah dari login biasa
+// ('pin:' + ip, bukan ip polos), supaya kedua mekanisme tidak saling memblokir.
+const PIN_MAX_ATTEMPTS = 5;
+const PIN_WINDOW_MS = 15 * 60 * 1000; // 15 menit
+const pinAttempts = new Map();
+
+function checkPinRateLimit(ip) {
+  const now = Date.now();
+  const entry = pinAttempts.get(ip);
+  if (!entry) return { blocked: false };
+  if (now - entry.firstAttemptAt > PIN_WINDOW_MS) {
+    pinAttempts.delete(ip);
+    return { blocked: false };
+  }
+  if (entry.count >= PIN_MAX_ATTEMPTS) {
+    const retryAfterMs = PIN_WINDOW_MS - (now - entry.firstAttemptAt);
+    return { blocked: true, retryAfterSec: Math.ceil(retryAfterMs / 1000) };
+  }
+  return { blocked: false };
+}
+function recordFailedPinAttempt(ip) {
+  const now = Date.now();
+  const entry = pinAttempts.get(ip);
+  if (!entry || now - entry.firstAttemptAt > PIN_WINDOW_MS) {
+    pinAttempts.set(ip, { count: 1, firstAttemptAt: now });
+  } else {
+    entry.count += 1;
+  }
+}
+function clearPinAttempts(ip) {
+  pinAttempts.delete(ip);
+}
+setInterval(() => {
+  const now = Date.now();
+  for (const [ip, entry] of pinAttempts.entries()) {
+    if (now - entry.firstAttemptAt > PIN_WINDOW_MS) pinAttempts.delete(ip);
+  }
+}, 30 * 60 * 1000);
+
 router.post('/login', (req, res) => {
   const ip = getClientIp(req);
   const rate = checkRateLimit(ip);
@@ -124,9 +185,68 @@ router.post('/logout', (req, res) => {
 
 router.get('/me', (req, res) => {
   if (req.session && req.session.isAdmin) {
-    return res.json({ ok: true, loggedIn: true, username: req.session.username });
+    return res.json({ ok: true, loggedIn: true, username: req.session.username, fleetOnly: false });
+  }
+  if (req.session && req.session.fleetOnly) {
+    return res.json({ ok: true, loggedIn: true, fleetOnly: true });
   }
   res.json({ ok: true, loggedIn: false });
+});
+
+// Akses cepat ke Gunex Fleet lewat PIN 6-digit, ditampilkan di halaman login
+// portal. Sengaja TIDAK memberi req.session.isAdmin = true - sesi ini hanya
+// mendapat req.session.fleetOnly, sehingga hanya bisa lewat requireFleetAccess
+// (dipakai khusus untuk route Gunex Fleet), tidak bisa membuka Company Profile
+// atau PO Matcher walau sesinya valid.
+router.get('/fleet-pin-status', (req, res) => {
+  const pin = readFleetPin();
+  res.json({ ok: true, pinSet: !!pin.pinHash });
+});
+
+router.post('/login-pin', (req, res) => {
+  const ip = getClientIp(req);
+  const rate = checkPinRateLimit(ip);
+  if (rate.blocked) {
+    return res.status(429).json({
+      ok: false,
+      error: `Terlalu banyak percobaan PIN salah. Coba lagi dalam ${Math.ceil(rate.retryAfterSec / 60)} menit.`
+    });
+  }
+  const { pin } = req.body || {};
+  if (!pin || !/^\d{6}$/.test(String(pin))) {
+    return res.status(400).json({ ok: false, error: 'PIN harus 6 digit angka.' });
+  }
+  const stored = readFleetPin();
+  if (!stored.pinHash) {
+    return res.status(400).json({ ok: false, error: 'PIN belum diatur. Atur PIN dulu lewat menu Gunex Fleet setelah login biasa.' });
+  }
+  const match = bcrypt.compareSync(String(pin), stored.pinHash);
+  if (!match) {
+    recordFailedPinAttempt(ip);
+    return res.status(401).json({ ok: false, error: 'PIN salah.' });
+  }
+  clearPinAttempts(ip);
+  req.session.regenerate((err) => {
+    if (err) {
+      console.error('Gagal regenerasi session untuk PIN:', err);
+      return res.status(500).json({ ok: false, error: 'Terjadi kesalahan saat membuat sesi.' });
+    }
+    req.session.fleetOnly = true;
+    res.json({ ok: true });
+  });
+});
+
+// Mengatur/mengganti PIN - wajib sudah login PENUH (username+password), TIDAK
+// bisa diakses lewat sesi fleetOnly sendiri (mencegah seseorang yang hanya
+// punya PIN lama untuk mengganti PIN tanpa pernah tahu password admin).
+router.post('/set-fleet-pin', requireAuth, (req, res) => {
+  const { newPin } = req.body || {};
+  if (!newPin || !/^\d{6}$/.test(String(newPin))) {
+    return res.status(400).json({ ok: false, error: 'PIN baru harus tepat 6 digit angka.' });
+  }
+  const pinHash = bcrypt.hashSync(String(newPin), 10);
+  writeFleetPin({ pinHash });
+  res.json({ ok: true });
 });
 
 router.post('/change-password', requireAuth, (req, res) => {
@@ -199,4 +319,4 @@ router.post('/change-username', requireAuth, (req, res) => {
   res.json({ ok: true, username: trimmed });
 });
 
-module.exports = { router, requireAuth, requireAuthPage };
+module.exports = { router, requireAuth, requireAuthPage, requireFleetAccess, requireFleetAccessPage };

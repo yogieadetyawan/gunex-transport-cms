@@ -3,7 +3,7 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 const { readContent, writeContent, resetContent, readFleetData, writeFleetData, resetFleetData } = require('./db');
-const { requireAuth } = require('./auth');
+const { requireAuth, requireFleetAccess } = require('./auth');
 const EMBEDDED_DEFAULT_CONTENT = require('./default-content');
 
 const router = express.Router();
@@ -105,8 +105,22 @@ router.post('/content/reset', requireAuth, (req, res) => {
   }
 });
 
-// Admin: upload gambar (logo, peta, foto klien, foto kendaraan, dsb)
+// Admin: upload gambar (logo, peta, foto klien, dsb) - khusus Company Profile,
+// TETAP requireAuth penuh (TIDAK menerima sesi PIN).
 router.post('/upload', requireAuth, (req, res) => {
+  upload.single('image')(req, res, (err) => {
+    if (err) return res.status(400).json({ ok: false, error: err.message });
+    if (!req.file) return res.status(400).json({ ok: false, error: 'Tidak ada file diunggah.' });
+    const url = `/uploads/${req.file.filename}`;
+    res.json({ ok: true, url });
+  });
+});
+
+// Upload foto kendaraan/barcode Pertamina khusus Gunex Fleet - endpoint TERPISAH
+// dari /upload di atas (bukan dipakai bersama), supaya middleware-nya bisa
+// requireFleetAccess (menerima sesi PIN) tanpa membuka sesi PIN ke endpoint
+// upload yang dipakai Company Profile.
+router.post('/fleet-upload', requireFleetAccess, (req, res) => {
   upload.single('image')(req, res, (err) => {
     if (err) return res.status(400).json({ ok: false, error: err.message });
     if (!req.file) return res.status(400).json({ ok: false, error: 'Tidak ada file diunggah.' });
@@ -119,6 +133,10 @@ router.post('/upload', requireAuth, (req, res) => {
 // Catatan keamanan: berbeda dari /api/content yang memang untuk konsumsi publik,
 // data fleet ini adalah data INTERNAL perusahaan (armada, sopir, dsb) — jadi GET
 // di sini JUGA mewajibkan login, tidak seperti /api/content yang publik.
+// requireFleetAccess (bukan requireAuth biasa) dipakai di GET/PUT/beacon supaya
+// sesi PIN akses cepat juga bisa membaca & menyimpan data sehari-hari. Aksi
+// destruktif (reset total) TETAP requireAuth penuh - PIN saja tidak cukup
+// untuk menghapus seluruh data armada.
 const FLEET_REQUIRED_ARRAYS = ['vehicles', 'services', 'tireEvents', 'categories'];
 function validateFleetData(incoming) {
   if (!isPlainObject(incoming)) return 'Data armada harus berupa objek, bukan ' + (Array.isArray(incoming) ? 'daftar/array' : typeof incoming) + '.';
@@ -128,7 +146,7 @@ function validateFleetData(incoming) {
   return null;
 }
 
-router.get('/fleet-data', requireAuth, (req, res) => {
+router.get('/fleet-data', requireFleetAccess, (req, res) => {
   try {
     const data = readFleetData();
     res.json({ ok: true, data });
@@ -137,7 +155,7 @@ router.get('/fleet-data', requireAuth, (req, res) => {
   }
 });
 
-router.put('/fleet-data', requireAuth, (req, res) => {
+router.put('/fleet-data', requireFleetAccess, (req, res) => {
   const incoming = req.body && req.body.data;
   const error = validateFleetData(incoming);
   if (error) {
@@ -167,8 +185,10 @@ router.post('/fleet-data/reset', requireAuth, (req, res) => {
 // sebagai Blob langsung), dan tidak menunggu response — jadi endpoint ini harus
 // tetap merespons cepat dan tidak mengandalkan adanya balasan yang dibaca klien.
 // Cookie session tetap terkirim normal oleh browser untuk same-origin beacon,
-// sehingga requireAuth tetap berfungsi seperti endpoint lain.
-router.post('/fleet-data/beacon', requireAuth, (req, res) => {
+// sehingga requireFleetAccess tetap berfungsi seperti endpoint lain (termasuk
+// untuk sesi PIN, supaya perubahan dari sesi PIN juga tidak hilang saat tab
+// ditutup mendadak).
+router.post('/fleet-data/beacon', requireFleetAccess, (req, res) => {
   const incoming = req.body;
   const error = validateFleetData(incoming);
   if (error) {

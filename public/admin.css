@@ -44,6 +44,28 @@ input{font-family:inherit;}
 .btn-primary:disabled{opacity:.6;cursor:default;}
 .login-error{background:#fdeceb;color:var(--danger);font-size:.88rem;padding:12px 14px;border-radius:var(--radius);margin-bottom:16px;display:none;line-height:1.5;}
 
+/* ===== Akses cepat PIN (Gunex Fleet) ===== */
+.pin-quick-link{
+  display:flex;align-items:center;justify-content:center;gap:7px;
+  width:100%;margin-top:18px;padding:10px 0;background:none;border:none;
+  color:var(--mute);font-size:.83rem;font-weight:600;cursor:pointer;
+  transition:color .2s;
+}
+.pin-quick-link svg{width:15px;height:15px;flex-shrink:0;}
+.pin-quick-link:hover{color:var(--blue);}
+.pin-card{display:none;}
+.pin-card.show{display:block;}
+.pin-title{font-size:1.1rem;font-weight:700;color:var(--blue-deep);margin-bottom:4px;text-align:center;}
+.pin-sub{font-size:.83rem;color:var(--mute);text-align:center;margin-bottom:22px;line-height:1.5;}
+.pin-input-row{display:flex;gap:9px;justify-content:center;margin-bottom:22px;}
+.pin-digit{
+  width:44px;height:54px;text-align:center;font-size:1.5rem;font-weight:700;
+  border:1.5px solid var(--line);border-radius:var(--radius);background:var(--bg);
+  color:var(--ink);transition:border-color .2s,background .2s;
+  -webkit-appearance:none;appearance:none;
+}
+.pin-digit:focus{outline:none;border-color:var(--blue);background:#fff;}
+
 /* ===== Portal menu shell ===== */
 .portal-shell{display:none;min-height:100vh;flex-direction:column;}
 .portal-shell.active{display:flex;}

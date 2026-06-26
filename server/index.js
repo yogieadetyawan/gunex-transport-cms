@@ -5,7 +5,7 @@ const path = require('path');
 const crypto = require('crypto');
 const fs = require('fs');
 
-const { router: authRouter, requireAuth, requireAuthPage } = require('./auth');
+const { router: authRouter, requireAuth, requireAuthPage, requireFleetAccessPage } = require('./auth');
 const contentRouter = require('./content-routes');
 const { readContent, writeContent, resetContent, CONTENT_FILE } = require('./db');
 const EMBEDDED_DEFAULT_CONTENT = require('./default-content');
@@ -153,7 +153,7 @@ app.get('/admin/company-profile', cspStrict, requireAuthPage, (req, res) => {
   res.sendFile(path.join(__dirname, '..', 'public', 'admin-company-profile.html'));
 });
 
-app.get('/admin/gunex-fleet', cspLegacyApps, requireAuthPage, (req, res) => {
+app.get('/admin/gunex-fleet', cspLegacyApps, requireFleetAccessPage, (req, res) => {
   res.sendFile(path.join(__dirname, '..', 'protected-apps', 'gunex-fleet.html'));
 });
 

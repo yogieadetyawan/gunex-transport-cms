@@ -49,6 +49,36 @@
       </div>
       <button type="submit" class="btn btn-primary" id="loginBtn">Masuk</button>
     </form>
+    <button type="button" class="pin-quick-link" id="pinQuickLink">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="11" width="18" height="10" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+      Akses cepat Gunex Fleet dengan PIN
+    </button>
+  </div>
+
+  <!-- PANEL PIN: akses cepat khusus Gunex Fleet, terpisah dari login biasa -->
+  <div class="login-card pin-card" id="pinCard" style="display:none;">
+    <div class="login-logo">
+      <svg class="logo-icon"><use href="#gunex-mark"/></svg>
+      <span class="logo-word"><span>GUNEX</span><span>TRANSPORT</span></span>
+    </div>
+    <div class="pin-title">Masuk dengan PIN</div>
+    <div class="pin-sub">Khusus untuk Gunex Fleet — masukkan 6 digit PIN</div>
+    <div class="login-error" id="pinError"></div>
+    <form id="pinForm">
+      <div class="pin-input-row">
+        <input type="text" inputmode="numeric" maxlength="1" class="pin-digit" data-idx="0">
+        <input type="text" inputmode="numeric" maxlength="1" class="pin-digit" data-idx="1">
+        <input type="text" inputmode="numeric" maxlength="1" class="pin-digit" data-idx="2">
+        <input type="text" inputmode="numeric" maxlength="1" class="pin-digit" data-idx="3">
+        <input type="text" inputmode="numeric" maxlength="1" class="pin-digit" data-idx="4">
+        <input type="text" inputmode="numeric" maxlength="1" class="pin-digit" data-idx="5">
+      </div>
+      <button type="submit" class="btn btn-primary" id="pinSubmitBtn">Masuk ke Gunex Fleet</button>
+    </form>
+    <button type="button" class="pin-quick-link" id="pinBackLink">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+      Kembali ke login biasa
+    </button>
   </div>
 </div>
 

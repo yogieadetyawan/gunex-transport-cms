@@ -9,6 +9,7 @@ const DEFAULT_FILE = path.join(DATA_DIR, 'content.default.json');
 const USERS_FILE = path.join(DATA_DIR, 'users.json');
 const FLEET_FILE = path.join(DATA_DIR, 'fleet.json');
 const FLEET_DEFAULT_FILE = path.join(DATA_DIR, 'fleet.default.json');
+const FLEET_PIN_FILE = path.join(DATA_DIR, 'fleet-pin.json');
 
 const DEFAULT_USERNAME = 'admin';
 const DEFAULT_PASSWORD = 'gunex2008admin';
@@ -149,8 +150,40 @@ function resetFleetData() {
   return JSON.parse(raw);
 }
 
+// --- PIN akses cepat Gunex Fleet ---
+// Disimpan di file TERPISAH dari fleet.json (bukan dicampur ke dalamnya),
+// supaya tidak mengganggu validasi struktur data armada yang sudah ketat
+// (vehicles/services/tireEvents/categories harus berupa array). PIN disimpan
+// ter-hash dengan bcrypt, BUKAN plain text, persis seperti password admin.
+// pinHash bernilai null artinya admin belum pernah mengatur PIN sama sekali -
+// dalam kondisi ini, akses cepat lewat PIN di halaman login TIDAK aktif.
+function ensurePinFile() {
+  ensureDataDir();
+  if (!fs.existsSync(FLEET_PIN_FILE)) {
+    fs.writeFileSync(FLEET_PIN_FILE, JSON.stringify({ pinHash: null }, null, 2), 'utf-8');
+  }
+}
+
+function readFleetPin() {
+  ensurePinFile();
+  try {
+    return JSON.parse(fs.readFileSync(FLEET_PIN_FILE, 'utf-8'));
+  } catch (e) {
+    console.error('[fleet-pin] Gagal membaca fleet-pin.json, menganggap PIN belum diatur:', e.message);
+    return { pinHash: null };
+  }
+}
+
+function writeFleetPin(obj) {
+  ensureDataDir();
+  const tmp = FLEET_PIN_FILE + '.tmp';
+  fs.writeFileSync(tmp, JSON.stringify(obj, null, 2), 'utf-8');
+  fs.renameSync(tmp, FLEET_PIN_FILE);
+}
+
 module.exports = {
   readContent, writeContent, resetContent, readUsers, writeUsers,
   readFleetData, writeFleetData, resetFleetData,
+  readFleetPin, writeFleetPin,
   CONTENT_FILE, USERS_FILE, FLEET_FILE, DEFAULT_USERNAME, DEFAULT_PASSWORD
 };
