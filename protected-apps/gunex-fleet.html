@@ -187,9 +187,10 @@ body{
 .field-label{ display:block; font-size:13.5px; color:var(--text-dim); margin-bottom:7px; font-weight:600; letter-spacing:.2px; }
 .field-label .req{ color:var(--bad); }
 .field-row{ display:grid; grid-template-columns:1fr 1fr; gap:10px; }
-/* field-row3 default 1 kolom (mobile) - 3 kolom sempit di layar HP akan
-   membuat setiap input terlalu kecil untuk diketuk/dibaca dengan nyaman.
-   Berubah jadi 3 kolom sejajar mulai dari breakpoint sheet desktop di bawah. */
+/* Utility 3-kolom umum (saat ini tidak dipakai di form manapun - Ganti Kaleng
+   dipindah jadi field berdiri sendiri di bawah Pajak/KIR karena label+teks
+   bantuannya terlalu panjang untuk kolom sempit). Default 1 kolom di mobile,
+   3 kolom sejajar mulai breakpoint sheet desktop, jika suatu saat dibutuhkan. */
 .field-row3{ display:grid; grid-template-columns:1fr; gap:10px; }
 @media (min-width:560px){
   .field-row3{ grid-template-columns:1fr 1fr 1fr; }
@@ -1303,7 +1304,7 @@ function openVehicleForm(existingId){
       <label class="field-label">Nama Supir</label>
       <input type="text" id="f_driver" placeholder="cth: Budi Santoso (opsional)" value="${v ? escapeHtml(v.driverName||'') : ''}">
     </div>
-    <div class="field-row3">
+    <div class="field-row">
       <div class="field">
         <label class="field-label">Berakhir Pajak (STNK)</label>
         <input type="date" id="f_pajak" value="${v ? (v.pajakExpiry||'') : ''}">
@@ -1312,11 +1313,11 @@ function openVehicleForm(existingId){
         <label class="field-label">Berakhir KIR</label>
         <input type="date" id="f_kir" value="${v ? (v.kirExpiry||'') : ''}">
       </div>
-      <div class="field">
-        <label class="field-label">Ganti Kaleng Terakhir <span style="color:var(--text-faint); font-weight:400;">(opsional)</span></label>
-        <input type="month" id="f_gantiKaleng" value="${v ? (v.gantiKalengDate||'') : ''}">
-        <div class="field-hint" style="margin-top:6px;">Diisi bulan &amp; tahun terakhir ganti plat nomor (STNK 5 tahunan). Jatuh tempo berikutnya akan dihitung otomatis +5 tahun.</div>
-      </div>
+    </div>
+    <div class="field">
+      <label class="field-label">Ganti Kaleng Terakhir <span style="color:var(--text-faint); font-weight:400;">(opsional)</span></label>
+      <input type="month" id="f_gantiKaleng" value="${v ? (v.gantiKalengDate||'') : ''}" style="max-width:220px;">
+      <div class="field-hint" style="margin-top:6px;">Diisi bulan &amp; tahun terakhir ganti plat nomor (STNK 5 tahunan). Jatuh tempo berikutnya akan dihitung otomatis +5 tahun.</div>
     </div>
     <div class="field">
       <label class="field-label">Catatan (opsional)</label>
@@ -2705,7 +2706,7 @@ function openPajakKirForm(vehicleId){
     </div>
     <div class="field">
       <label class="field-label">Ganti Kaleng Terakhir <span style="color:var(--text-faint); font-weight:400;">(opsional)</span></label>
-      <input type="month" id="pk_gantiKaleng" value="${v.gantiKalengDate||''}">
+      <input type="month" id="pk_gantiKaleng" value="${v.gantiKalengDate||''}" style="max-width:220px;">
       ${v.gantiKalengDate ? `<div class="field-hint" style="color:${expiryStatusColor(gantiKalengInfo.status)}">Jatuh tempo ${fmtMonthYear(gantiKalengInfo.dueDate.slice(0,7))} · ${expiryStatusLabel(gantiKalengInfo)}</div>` : `<div class="field-hint">Pergantian plat nomor 5 tahun sekali di Samsat. Jatuh tempo dihitung otomatis +5 tahun.</div>`}
     </div>
     <button class="btn btn-primary" onclick="savePajakKir('${v.id}')">
