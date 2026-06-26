@@ -226,28 +226,6 @@ input[type=date]::-webkit-datetime-edit-month-field,
 input[type=date]::-webkit-datetime-edit-day-field,
 input[type=date]::-webkit-datetime-edit-year-field{ color: var(--text); }
 
-/* Input bulan-tahun (mis. tanggal terakhir Ganti Kaleng - pergantian plat
-   nomor 5 tahun sekali di Samsat) - styling sama dengan
-   input[type=date] di atas, appearance native dipertahankan agar popup
-   bawaan browser tetap muncul. */
-input[type=month]{
-  width:100%; background: var(--bg-soft); border:1px solid var(--line);
-  border-radius: var(--radius-sm); padding:13px 14px; color:var(--text);
-  font-family:var(--font-body); font-size:16px; outline:none; transition:.15s;
-  line-height:1.4; min-height:48px;
-}
-input[type=month]::-webkit-calendar-picker-indicator{
-  filter: invert(0.75) sepia(1) saturate(3) hue-rotate(170deg) brightness(1.1);
-  cursor:pointer; padding:4px; border-radius:6px;
-}
-input[type=month]::-webkit-calendar-picker-indicator:hover{
-  background: rgba(125,211,252,0.12);
-}
-input[type=month]::-webkit-datetime-edit{ color: var(--text); }
-input[type=month]::-webkit-datetime-edit-text,
-input[type=month]::-webkit-datetime-edit-month-field,
-input[type=month]::-webkit-datetime-edit-year-field{ color: var(--text); }
-
 textarea{ resize:vertical; min-height:72px; font-size:15.5px; }
 input::placeholder, textarea::placeholder{ color: var(--text-faint); }
 input:focus, select:focus, textarea:focus{
@@ -894,49 +872,22 @@ function getOliDueVehicles(){
 
 /* ============================================================
    GANTI KALENG — pergantian plat nomor (STNK) 5 tahun sekali yang
-   diurus di Samsat. Admin mengisi BULAN/TAHUN TERAKHIR kali ganti
-   plat (vehicle.gantiKalengDate, format "YYYY-MM" dari <input type=month>),
-   sistem menghitung otomatis jatuh tempo berikutnya = tanggal itu + 5 tahun,
-   dengan logika peringatan yang sama (H-30) seperti Pajak/KIR/Oli.
+   diurus di Samsat. Admin mengisi LANGSUNG TANGGAL JATUH TEMPONYA
+   (vehicle.gantiKalengDate, format ISO YYYY-MM-DD dari <input type=date>) -
+   SAMA seperti cara mengisi Pajak (STNK) dan KIR, BUKAN dihitung otomatis
+   dari tanggal terakhir. Status peringatan memakai getExpiryStatus() yang
+   sama (H-30) seperti Pajak/KIR/Oli - lihat fungsi itu di atas.
    ============================================================ */
-const GANTI_KALENG_INTERVAL_YEARS = 5;
-
-/* Tanggal estimasi jatuh tempo Ganti Kaleng berikutnya (ISO YYYY-MM-DD),
-   dihitung sebagai tanggal 1 di bulan yang sama, 5 tahun setelah input
-   terakhir. Mengembalikan null jika belum pernah diisi sama sekali. */
-function getGantiKalengDueDate(vehicle){
-  if(!vehicle || !vehicle.gantiKalengDate) return null;
-  // vehicle.gantiKalengDate berformat "YYYY-MM" (dari <input type=month>)
-  const [y, m] = vehicle.gantiKalengDate.split('-').map(Number);
-  if(!y || !m) return null;
-  const dueYear = y + GANTI_KALENG_INTERVAL_YEARS;
-  return `${dueYear}-${String(m).padStart(2,'0')}-01`;
-}
-/* Status Ganti Kaleng kendaraan: sama struktur dgn getExpiryStatus/getOliStatus
-   ({status, daysLeft}), plus lastDate (bulan/tahun input terakhir) dan dueDate
-   (estimasi jatuh tempo) untuk ditampilkan. */
 function getGantiKalengStatus(vehicle){
-  const dueDate = getGantiKalengDueDate(vehicle);
-  const info = getExpiryStatus(dueDate);
-  info.lastDate = vehicle ? (vehicle.gantiKalengDate || null) : null;
-  info.dueDate = dueDate;
-  return info;
+  return getExpiryStatus(vehicle ? vehicle.gantiKalengDate : null);
 }
-/* Kendaraan yang Ganti Kaleng-nya sudah lewat estimasi / jatuh tempo dalam
+/* Kendaraan yang Ganti Kaleng-nya sudah lewat / akan jatuh tempo dalam
    <=30 hari. Kendaraan yang belum pernah diisi TIDAK termasuk (status 'none'). */
 function getGantiKalengDueVehicles(){
   return DB.vehicles.filter(v => {
     const gk = getGantiKalengStatus(v);
     return gk.status === 'expired' || gk.status === 'warning';
   });
-}
-/* Format label bulan-tahun "YYYY-MM" jadi "Maret 2025" untuk tampilan. */
-const BULAN_INDO = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
-function fmtMonthYear(yyyymm){
-  if(!yyyymm) return '';
-  const [y, m] = yyyymm.split('-').map(Number);
-  if(!y || !m || m < 1 || m > 12) return yyyymm;
-  return `${BULAN_INDO[m-1]} ${y}`;
 }
 
 function escapeHtml(str){
@@ -1315,9 +1266,9 @@ function openVehicleForm(existingId){
       </div>
     </div>
     <div class="field">
-      <label class="field-label">Ganti Kaleng Terakhir <span style="color:var(--text-faint); font-weight:400;">(opsional)</span></label>
-      <input type="month" id="f_gantiKaleng" value="${v ? (v.gantiKalengDate||'') : ''}" style="max-width:220px;">
-      <div class="field-hint" style="margin-top:6px;">Diisi bulan &amp; tahun terakhir ganti plat nomor (STNK 5 tahunan). Jatuh tempo berikutnya akan dihitung otomatis +5 tahun.</div>
+      <label class="field-label">Berakhir Ganti Kaleng <span style="color:var(--text-faint); font-weight:400;">(opsional)</span></label>
+      <input type="date" id="f_gantiKaleng" value="${v ? (v.gantiKalengDate||'') : ''}">
+      <div class="field-hint" style="margin-top:6px;">Tanggal jatuh tempo pergantian plat nomor (STNK 5 tahunan) di Samsat.</div>
     </div>
     <div class="field">
       <label class="field-label">Catatan (opsional)</label>
@@ -1460,7 +1411,7 @@ function openVehicleDetail(id){
     <div class="detail-row"><span class="dl">Nama Supir</span><span class="dv">${v.driverName ? escapeHtml(v.driverName) : '—'}</span></div>
     <div class="detail-row"><span class="dl">Pajak (STNK)</span><span class="dv" style="color:${expiryStatusColor(pajakInfo.status)}">${v.pajakExpiry ? fmtDate(v.pajakExpiry)+' · '+expiryStatusLabel(pajakInfo) : 'Belum diisi'}</span></div>
     <div class="detail-row"><span class="dl">KIR</span><span class="dv" style="color:${expiryStatusColor(kirInfo.status)}">${v.kirExpiry ? fmtDate(v.kirExpiry)+' · '+expiryStatusLabel(kirInfo) : 'Belum diisi'}</span></div>
-    <div class="detail-row"><span class="dl">Ganti Kaleng</span><span class="dv" style="color:${expiryStatusColor(gantiKalengInfo.status)}">${v.gantiKalengDate ? `Terakhir ${fmtMonthYear(v.gantiKalengDate)} · Jatuh tempo ${fmtMonthYear(gantiKalengInfo.dueDate ? gantiKalengInfo.dueDate.slice(0,7) : '')} (${expiryStatusLabel(gantiKalengInfo)})` : 'Belum diisi'}</span></div>
+    <div class="detail-row"><span class="dl">Ganti Kaleng</span><span class="dv" style="color:${expiryStatusColor(gantiKalengInfo.status)}">${v.gantiKalengDate ? fmtDate(v.gantiKalengDate)+' · '+expiryStatusLabel(gantiKalengInfo) : 'Belum diisi'}</span></div>
     <div class="detail-row"><span class="dl">Terdaftar</span><span class="dv">${fmtDate(v.createdAt)}</span></div>
     ${v.note ? `<div class="detail-row"><span class="dl">Catatan</span><span class="dv">${escapeHtml(v.note)}</span></div>` : ''}
     ${v.pertaminaPhotoUrl ? `
@@ -2634,7 +2585,7 @@ function renderPajakList(){
         </div>
         <div class="detail-row" style="padding:7px 0;">
           <span class="dl">Ganti Kaleng</span>
-          <span class="dv" style="color:${expiryStatusColor(gantiKalengInfo.status)}">${v.gantiKalengDate ? 'Jatuh tempo '+fmtMonthYear(gantiKalengInfo.dueDate.slice(0,7))+' · '+expiryStatusLabel(gantiKalengInfo) : 'Belum diisi'}</span>
+          <span class="dv" style="color:${expiryStatusColor(gantiKalengInfo.status)}">${v.gantiKalengDate ? fmtDate(v.gantiKalengDate)+' · '+expiryStatusLabel(gantiKalengInfo) : 'Belum diisi'}</span>
         </div>
       </div>`;
     }).join('');
@@ -2705,9 +2656,9 @@ function openPajakKirForm(vehicleId){
       ${v.kirExpiry ? `<div class="field-hint" style="color:${expiryStatusColor(kirInfo.status)}">${expiryStatusLabel(kirInfo)}</div>` : ''}
     </div>
     <div class="field">
-      <label class="field-label">Ganti Kaleng Terakhir <span style="color:var(--text-faint); font-weight:400;">(opsional)</span></label>
-      <input type="month" id="pk_gantiKaleng" value="${v.gantiKalengDate||''}" style="max-width:220px;">
-      ${v.gantiKalengDate ? `<div class="field-hint" style="color:${expiryStatusColor(gantiKalengInfo.status)}">Jatuh tempo ${fmtMonthYear(gantiKalengInfo.dueDate.slice(0,7))} · ${expiryStatusLabel(gantiKalengInfo)}</div>` : `<div class="field-hint">Pergantian plat nomor 5 tahun sekali di Samsat. Jatuh tempo dihitung otomatis +5 tahun.</div>`}
+      <label class="field-label">Berakhir Ganti Kaleng <span style="color:var(--text-faint); font-weight:400;">(opsional)</span></label>
+      <input type="date" id="pk_gantiKaleng" value="${v.gantiKalengDate||''}">
+      ${v.gantiKalengDate ? `<div class="field-hint" style="color:${expiryStatusColor(gantiKalengInfo.status)}">${expiryStatusLabel(gantiKalengInfo)}</div>` : `<div class="field-hint">Tanggal jatuh tempo pergantian plat nomor (STNK 5 tahunan) di Samsat.</div>`}
     </div>
     <button class="btn btn-primary" onclick="savePajakKir('${v.id}')">
       <svg viewBox="0 0 24 24" fill="none"><path d="M20 6L9 17l-5-5" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
