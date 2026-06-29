@@ -81,6 +81,24 @@ nav a:hover{opacity:1;color:var(--blue);}
 
 .hero{background:linear-gradient(170deg,#ffffff 0%, var(--sky-soft) 60%, var(--sky) 100%);color:var(--ink);padding:140px 0 80px;position:relative;overflow:hidden;}
 .hero::before{content:'';position:absolute;inset:0;background-image:repeating-linear-gradient(90deg, transparent 0 78px, rgba(29,61,135,.04) 78px 79px),repeating-linear-gradient(0deg, transparent 0 78px, rgba(29,61,135,.04) 78px 79px);pointer-events:none;}
+
+/* Mode foto banner: gambar diisi penuh sebagai latar, lapisan gelap-transparan
+   di atasnya (::after, terpisah dari ::before grid pattern di atas supaya
+   tidak saling menimpa) untuk menjaga kontras teks tetap terbaca di atas
+   foto apapun yang diupload admin. Warna teks dialihkan ke putih HANYA pada
+   mode ini - di mode gradient biasa (tanpa banner), teks tetap gelap seperti
+   semula karena background-nya terang. */
+.hero.has-banner{background-size:cover;background-position:center;}
+.hero.has-banner::after{content:'';position:absolute;inset:0;background:linear-gradient(170deg, rgba(10,20,45,.82) 0%, rgba(10,20,45,.6) 55%, rgba(10,20,45,.78) 100%);pointer-events:none;}
+.hero.has-banner .eyebrow{color:#9cc2f5;}
+.hero.has-banner .eyebrow::before{background:#9cc2f5;}
+.hero.has-banner h1{color:#fff;}
+.hero.has-banner h1 span{color:#7dd3fc;}
+.hero.has-banner p.lead{color:rgba(255,255,255,.88);}
+.hero.has-banner .stat{border-top-color:#7dd3fc;}
+.hero.has-banner .stat .num{color:#fff;}
+.hero.has-banner .stat .label{color:rgba(255,255,255,.75);}
+
 .hero-grid{position:relative;z-index:2;display:grid;gap:34px;}
 .hero .eyebrow{font-size:.78rem;letter-spacing:.22em;text-transform:uppercase;color:var(--blue);font-weight:600;margin-bottom:18px;display:flex;align-items:center;gap:10px;}
 .hero .eyebrow::before{content:'';width:30px;height:2px;background:var(--blue);}

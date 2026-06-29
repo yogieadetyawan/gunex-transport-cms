@@ -149,6 +149,76 @@
     return html;
   }
 
+  // Field upload gambar generik: pratinjau gambar saat ini (atau placeholder
+  // kosong kalau belum diupload), tombol pilih file, dan tombol hapus yang
+  // hanya muncul kalau sudah ada gambar tersimpan. onChange dipanggil dengan
+  // URL baru (string) setelah upload berhasil, atau '' setelah dihapus.
+  function imageUploadField(label, currentUrl, onChange, opts) {
+    opts = opts || {};
+    const uid = 'img_' + Math.random().toString(36).slice(2, 9);
+    const help = opts.help ? `<div class="help">${opts.help}</div>` : '';
+    const hasImage = !!currentUrl;
+    const html = `
+      <div class="simple-field">
+        <label>${label}</label>
+        <div class="image-upload-box" id="${uid}_box">
+          <div class="image-upload-preview" id="${uid}_preview">
+            ${hasImage ? `<img src="${escAttr(currentUrl)}" alt="">` : `<span class="image-upload-empty">Belum ada gambar</span>`}
+          </div>
+          <div class="image-upload-actions">
+            <label class="btn-top" style="cursor:pointer;">
+              ${hasImage ? 'Ganti Gambar' : 'Unggah Gambar'}
+              <input type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml" id="${uid}_input" style="display:none;">
+            </label>
+            <button type="button" class="btn-top" id="${uid}_remove" style="${hasImage ? '' : 'display:none;'}background:#fdeceb;color:var(--danger);border-color:#f3c9c4;">Hapus</button>
+          </div>
+          <div class="image-upload-status" id="${uid}_status"></div>
+        </div>
+        ${help}
+      </div>`;
+    setTimeout(() => {
+      const fileInput = document.getElementById(uid + '_input');
+      const removeBtn = document.getElementById(uid + '_remove');
+      const statusEl = document.getElementById(uid + '_status');
+      const previewEl = document.getElementById(uid + '_preview');
+
+      fileInput.addEventListener('change', async () => {
+        const file = fileInput.files[0];
+        if (!file) return;
+        statusEl.textContent = 'Mengunggah...';
+        statusEl.style.color = 'var(--mute)';
+        try {
+          const formData = new FormData();
+          formData.append('image', file);
+          const res = await fetch('/api/upload', { method: 'POST', body: formData });
+          const data = await res.json();
+          if (data.ok) {
+            previewEl.innerHTML = `<img src="${escAttr(data.url)}" alt="">`;
+            removeBtn.style.display = '';
+            statusEl.textContent = 'Berhasil diunggah.';
+            statusEl.style.color = '#1e8e5a';
+            onChange(data.url);
+          } else {
+            statusEl.textContent = data.error || 'Gagal mengunggah gambar.';
+            statusEl.style.color = 'var(--danger)';
+          }
+        } catch (e) {
+          statusEl.textContent = 'Tidak dapat terhubung ke server.';
+          statusEl.style.color = 'var(--danger)';
+        }
+        fileInput.value = '';
+      });
+
+      removeBtn.addEventListener('click', () => {
+        previewEl.innerHTML = `<span class="image-upload-empty">Belum ada gambar</span>`;
+        removeBtn.style.display = 'none';
+        statusEl.textContent = '';
+        onChange('');
+      });
+    }, 0);
+    return html;
+  }
+
   function renderSection(key) {
     const pane = $('#editPane');
     if (key === 'account') {
@@ -177,6 +247,7 @@
   function renderHero() {
     const h = content.hero;
     let html = '';
+    html += imageUploadField('Foto Banner (opsional)', h.bannerUrl, v => { h.bannerUrl = v; markDirty(); }, { help: 'Tampil sebagai latar di bagian paling atas website. Jika tidak diunggah, latar polos berwarna biru-putih tetap dipakai seperti biasa. Disarankan foto lanskap (lebih lebar daripada tinggi) agar tidak terlalu terpotong.' });
     html += simpleField('Kalimat kecil di atas judul', h.eyebrow, v => { h.eyebrow = v; markDirty(); });
     html += simpleField('Judul utama', h.headline, v => { h.headline = v; markDirty(); });
     html += simpleField('Lanjutan judul (warna terang)', h.headlineAccent, v => { h.headlineAccent = v; markDirty(); });

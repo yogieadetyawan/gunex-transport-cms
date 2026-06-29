@@ -99,6 +99,21 @@ input,textarea,select{font-family:inherit;}
 .simple-field .changed-badge{display:none;font-size:.72rem;color:#b07700;font-weight:700;margin-left:8px;}
 .simple-field.changed .changed-badge{display:inline;}
 
+.image-upload-box{border:1.5px dashed var(--line);border-radius:var(--radius);padding:16px;background:var(--bg);}
+.image-upload-preview{
+  width:100%;height:160px;border-radius:8px;background:#fff;border:1px solid var(--line);
+  display:flex;align-items:center;justify-content:center;overflow:hidden;margin-bottom:12px;
+}
+.image-upload-preview img{width:100%;height:100%;object-fit:cover;}
+.image-upload-empty{font-size:.82rem;color:var(--mute);}
+.image-upload-actions{display:flex;gap:10px;}
+.image-upload-actions .btn-top{
+  background:var(--blue);color:#fff;border:1px solid var(--blue);
+  font-size:.82rem;padding:9px 16px;
+}
+.image-upload-actions .btn-top:hover{background:var(--blue-deep);}
+.image-upload-status{font-size:.78rem;margin-top:8px;min-height:16px;}
+
 .card-item{background:var(--bg);border:1.5px solid var(--line);border-radius:12px;padding:18px;margin-bottom:14px;}
 .card-item-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;}
 .card-item-head .num-badge{width:28px;height:28px;border-radius:50%;background:var(--blue);color:#fff;display:flex;align-items:center;justify-content:center;font-size:.78rem;font-weight:700;font-family:'JetBrains Mono',monospace;}

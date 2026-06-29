@@ -548,6 +548,8 @@ function loadDBFromLocalStorage(){
           if(v.pajakExpiry === undefined) v.pajakExpiry = '';
           if(v.kirExpiry === undefined) v.kirExpiry = '';
           if(v.gantiKalengDate === undefined) v.gantiKalengDate = '';
+          if(v.chassisNumber === undefined) v.chassisNumber = '';
+          if(v.engineNumber === undefined) v.engineNumber = '';
           if(v.photoUrl === undefined) v.photoUrl = '';
           if(v.pertaminaPhotoUrl === undefined) v.pertaminaPhotoUrl = '';
         });
@@ -1151,7 +1153,9 @@ function renderMasterList(){
       if(!q) return true;
       const catName = (getCategoryLabel(v.categoryId) || '').toLowerCase();
       const driverName = (v.driverName || '').toLowerCase();
-      return v.plate.toLowerCase().includes(q) || v.merk.toLowerCase().includes(q) || v.type.toLowerCase().includes(q) || catName.includes(q) || driverName.includes(q);
+      const chassis = (v.chassisNumber || '').toLowerCase();
+      const engine = (v.engineNumber || '').toLowerCase();
+      return v.plate.toLowerCase().includes(q) || v.merk.toLowerCase().includes(q) || v.type.toLowerCase().includes(q) || catName.includes(q) || driverName.includes(q) || chassis.includes(q) || engine.includes(q);
     })
     .sort((a,b) => a.plate.localeCompare(b.plate));
   if(masterFilterCategory){
@@ -1209,7 +1213,7 @@ function renderMasterList(){
       <div class="view-sub">${DB.vehicles.length} kendaraan terdaftar</div>
     </div>
     <div class="search-bar">
-      <input type="text" placeholder="Cari no. polisi, merk, type, atau supir..." value="${escapeHtml(masterSearchQuery)}" oninput="masterSearchQuery=this.value; renderMasterList();">
+      <input type="text" placeholder="Cari no. polisi, merk, type, supir, rangka, atau mesin..." value="${escapeHtml(masterSearchQuery)}" oninput="masterSearchQuery=this.value; renderMasterList();">
       <select style="width:auto; flex-shrink:0; max-width:150px;" onchange="masterFilterCategory=this.value; renderMasterList();">
         <option value="">Semua Kategori</option>
         <option value="__none__" ${masterFilterCategory==='__none__'?'selected':''}>Tanpa kategori</option>
@@ -1271,8 +1275,16 @@ function openVehicleForm(existingId){
       <div class="field-hint" style="margin-top:6px;">Tanggal jatuh tempo pergantian plat nomor (STNK 5 tahunan) di Samsat.</div>
     </div>
     <div class="field">
+      <label class="field-label">Nomor Rangka <span style="color:var(--text-faint); font-weight:400;">(opsional)</span></label>
+      <input type="text" id="f_chassis" placeholder="cth: MHKV1AA2JCK123456" value="${v ? escapeHtml(v.chassisNumber||'') : ''}">
+    </div>
+    <div class="field">
+      <label class="field-label">Nomor Mesin <span style="color:var(--text-faint); font-weight:400;">(opsional)</span></label>
+      <input type="text" id="f_engine" placeholder="cth: DA640-123456" value="${v ? escapeHtml(v.engineNumber||'') : ''}">
+    </div>
+    <div class="field">
       <label class="field-label">Catatan (opsional)</label>
-      <textarea id="f_note" placeholder="Nomor mesin, nomor rangka, atau catatan lain...">${v ? escapeHtml(v.note||'') : ''}</textarea>
+      <textarea id="f_note" placeholder="Catatan tambahan lainnya...">${v ? escapeHtml(v.note||'') : ''}</textarea>
     </div>
     <div class="field">
       <label class="field-label">Foto Kendaraan (opsional)</label>
@@ -1328,6 +1340,8 @@ function saveVehicle(id){
   const pajakExpiry = document.getElementById('f_pajak').value;
   const kirExpiry = document.getElementById('f_kir').value;
   const gantiKalengDate = document.getElementById('f_gantiKaleng').value;
+  const chassisNumber = document.getElementById('f_chassis').value.trim();
+  const engineNumber = document.getElementById('f_engine').value.trim();
   const note = document.getElementById('f_note').value.trim();
 
   if(!plate || !merk || !type || !tahun){
@@ -1357,11 +1371,13 @@ function saveVehicle(id){
     const v = getVehicle(id);
     v.plate = plate; v.merk = merk; v.type = type; v.tahun = tahun; v.note = note; v.categoryId = categoryId; v.driverName = driverName;
     v.pajakExpiry = pajakExpiry; v.kirExpiry = kirExpiry; v.gantiKalengDate = gantiKalengDate;
+    v.chassisNumber = chassisNumber; v.engineNumber = engineNumber;
     v.photoUrl = window.__pendingPhoto_photo || '';
     v.pertaminaPhotoUrl = window.__pendingPhoto_pertaminaPhoto || '';
   } else {
     DB.vehicles.push({
       id: uid('veh'), plate, merk, type, tahun, note, categoryId, driverName, pajakExpiry, kirExpiry, gantiKalengDate,
+      chassisNumber, engineNumber,
       photoUrl: window.__pendingPhoto_photo || '',
       pertaminaPhotoUrl: window.__pendingPhoto_pertaminaPhoto || '',
       createdAt: todayISO()
@@ -1412,6 +1428,8 @@ function openVehicleDetail(id){
     <div class="detail-row"><span class="dl">Pajak (STNK)</span><span class="dv" style="color:${expiryStatusColor(pajakInfo.status)}">${v.pajakExpiry ? fmtDate(v.pajakExpiry)+' · '+expiryStatusLabel(pajakInfo) : 'Belum diisi'}</span></div>
     <div class="detail-row"><span class="dl">KIR</span><span class="dv" style="color:${expiryStatusColor(kirInfo.status)}">${v.kirExpiry ? fmtDate(v.kirExpiry)+' · '+expiryStatusLabel(kirInfo) : 'Belum diisi'}</span></div>
     <div class="detail-row"><span class="dl">Ganti Kaleng</span><span class="dv" style="color:${expiryStatusColor(gantiKalengInfo.status)}">${v.gantiKalengDate ? fmtDate(v.gantiKalengDate)+' · '+expiryStatusLabel(gantiKalengInfo) : 'Belum diisi'}</span></div>
+    ${v.chassisNumber ? `<div class="detail-row"><span class="dl">No. Rangka</span><span class="dv">${escapeHtml(v.chassisNumber)}</span></div>` : ''}
+    ${v.engineNumber ? `<div class="detail-row"><span class="dl">No. Mesin</span><span class="dv">${escapeHtml(v.engineNumber)}</span></div>` : ''}
     <div class="detail-row"><span class="dl">Terdaftar</span><span class="dv">${fmtDate(v.createdAt)}</span></div>
     ${v.note ? `<div class="detail-row"><span class="dl">Catatan</span><span class="dv">${escapeHtml(v.note)}</span></div>` : ''}
     ${v.pertaminaPhotoUrl ? `

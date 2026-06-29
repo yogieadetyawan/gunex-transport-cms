@@ -9,6 +9,20 @@
       .replace(/>/g, '&gt;');
   }
 
+  // Escaping khusus untuk nilai yang disisipkan ke dalam ATRIBUT HTML (mis.
+  // style="background-image:url('...')") - esc() biasa TIDAK menutup celah
+  // tanda kutip, yang berisiko merusak/membobol atribut kalau nilainya
+  // (misalnya URL banner) sampai mengandung karakter kutip.
+  function escAttr(str) {
+    if (str === undefined || str === null) return '';
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
   function nl2p(str) {
     return esc(str);
   }
@@ -37,8 +51,10 @@
     const stats = (hero.stats || []).map(s => `
       <div class="stat"><div class="num">${esc(s.num)}</div><div class="label">${esc(s.label)}</div></div>
     `).join('');
+    const hasBanner = !!hero.bannerUrl;
+    const heroStyle = hasBanner ? ` style="background-image:url('${escAttr(hero.bannerUrl)}')"` : '';
     return `
-    <section class="hero" id="km00">
+    <section class="hero${hasBanner ? ' has-banner' : ''}" id="km00"${heroStyle}>
       <div class="wrap hero-grid">
         <div>
           <div class="eyebrow">${esc(hero.eyebrow)}</div>
