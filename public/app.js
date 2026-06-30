@@ -345,6 +345,8 @@
 
     initScrollAnimations();
     initGallery();
+    addParallaxLayers();
+    initParallax();
   }
 
   // ---------- Boot loader: layar pembuka singkat saat website pertama dibuka ----------
@@ -390,6 +392,85 @@
       });
     }, { threshold: 0.15, rootMargin: '0px 0px -40px 0px' });
     targets.forEach(el => scrollObserver.observe(el));
+  }
+
+  // ---------- Parallax: layer dekoratif halus bergerak beda kecepatan saat scroll ----------
+  // addParallaxLayers() menyisipkan elemen dekoratif (orb blur + garis
+  // diagonal tipis) ke SETIAP <section> (termasuk Hero) secara otomatis -
+  // satu titik sentral, supaya tidak perlu menambah markup manual ke 9
+  // fungsi renderXxx() yang berbeda (rawan lupa/tidak konsisten). Dipanggil
+  // ulang setiap render() selesai, karena app.innerHTML dibangun dari nol -
+  // section lama beserta layer lamanya sudah tidak ada lagi di DOM.
+  function addParallaxLayers() {
+    const sections = document.querySelectorAll('.hero, .section');
+    sections.forEach((section, i) => {
+      // Dua orb (besar di kanan-atas, lebih kecil di kiri-bawah) + satu blok
+      // garis diagonal yang menutupi area lebih luas - posisi diselang-seling
+      // (genap/ganjil) supaya antar section yang berdekatan tidak terlihat
+      // berulang dengan pola yang persis sama.
+      const flip = i % 2 === 0;
+      const orbA = document.createElement('div');
+      orbA.className = 'parallax-layer parallax-orb';
+      orbA.dataset.parallaxSpeed = '0.15';
+      orbA.style.cssText = flip
+        ? 'width:420px;height:420px;top:-120px;right:-100px;'
+        : 'width:420px;height:420px;top:-120px;left:-100px;';
+      section.appendChild(orbA);
+
+      const orbB = document.createElement('div');
+      orbB.className = 'parallax-layer parallax-orb';
+      orbB.dataset.parallaxSpeed = '0.08';
+      orbB.style.cssText = flip
+        ? 'width:260px;height:260px;bottom:-80px;left:-60px;'
+        : 'width:260px;height:260px;bottom:-80px;right:-60px;';
+      section.appendChild(orbB);
+
+      const lines = document.createElement('div');
+      lines.className = 'parallax-layer parallax-line';
+      lines.dataset.parallaxSpeed = '0.05';
+      lines.style.cssText = 'width:60%;height:140%;top:-20%;' + (flip ? 'right:0;' : 'left:0;');
+      section.appendChild(lines);
+    });
+  }
+
+  // initParallax() menggerakkan seluruh layer yang sudah disisipkan di atas,
+  // setiap layer bergerak vertikal sebesar (jarak section dari tengah
+  // viewport) x (kecepatannya sendiri, lihat data-parallax-speed) - layer
+  // dengan kecepatan lebih kecil bergerak lebih lambat dari konten normal,
+  // menciptakan kesan KEDALAMAN antar lapisan (efek parallax klasik), TANPA
+  // memakai background-attachment:fixed yang terkenal bermasalah/tidak
+  // berfungsi di iOS Safari - pendekatan transform:translateY ini bekerja
+  // konsisten di semua browser modern termasuk mobile.
+  let parallaxLayers = [];
+  let parallaxTicking = false;
+  function updateParallax() {
+    const viewportCenter = window.innerHeight / 2;
+    parallaxLayers.forEach(({ el, speed }) => {
+      const rect = el.parentElement.getBoundingClientRect();
+      const sectionCenter = rect.top + rect.height / 2;
+      const distanceFromCenter = sectionCenter - viewportCenter;
+      el.style.transform = `translateY(${distanceFromCenter * speed}px)`;
+    });
+    parallaxTicking = false;
+  }
+  function onParallaxScroll() {
+    if (parallaxTicking) return;
+    parallaxTicking = true;
+    requestAnimationFrame(updateParallax);
+  }
+  function initParallax() {
+    window.removeEventListener('scroll', onParallaxScroll);
+    const reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const inIframe = window.self !== window.top;
+    // Dimatikan total di mode pratinjau admin (iframe) dan saat pengunjung
+    // meminta gerakan dikurangi - konsisten dengan initScrollAnimations().
+    if (reduceMotion || inIframe) return;
+    parallaxLayers = Array.from(document.querySelectorAll('.parallax-layer')).map(el => ({
+      el, speed: parseFloat(el.dataset.parallaxSpeed) || 0.1
+    }));
+    if (parallaxLayers.length === 0) return;
+    updateParallax(); // posisi awal langsung benar, tidak menunggu scroll pertama
+    window.addEventListener('scroll', onParallaxScroll, { passive: true });
   }
 
   // ---------- Header: tampilan halus saat halaman mulai di-scroll ----------

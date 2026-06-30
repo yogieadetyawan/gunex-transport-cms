@@ -101,7 +101,7 @@ nav a:hover{opacity:1;color:var(--blue);}
 .stat .num{font-family:'JetBrains Mono',monospace;font-size:clamp(1.6rem,3vw,2.2rem);font-weight:700;color:var(--blue-deep);}
 .stat .label{font-size:.78rem;color:var(--mute);margin-top:4px;letter-spacing:.02em;}
 
-.section{padding:96px 0;}
+.section{padding:96px 0;position:relative;overflow:hidden;}
 .section-light{background:var(--paper);}
 .section-soft{background:var(--sky-soft);}
 .section-dark{background:var(--blue-deep);color:#fff;}
@@ -109,6 +109,53 @@ h2.headline{font-size:clamp(1.7rem,3.6vw,2.5rem);font-weight:700;line-height:1.1
 .section-dark h2.headline{color:#fff;}
 .lede{font-size:1.02rem;color:var(--mute);max-width:620px;line-height:1.7;}
 .section-dark .lede{color:#c5d8f2;}
+
+/* ============================================================
+   PARALLAX — layer dekoratif HALUS di setiap section (Hero +
+   section-light/soft/dark), digerakkan via JS (transform:translateY,
+   BUKAN background-attachment:fixed yang terkenal tidak berfungsi di
+   iOS Safari) dengan kecepatan berbeda dari konten saat discroll, untuk
+   kesan kedalaman yang umum dikenal sebagai "efek parallax". Sengaja
+   dibuat sangat halus (gerakan kecil, opacity rendah) sesuai instruksi -
+   elemen dekoratif, BUKAN pusat perhatian. position:absolute & ukuran
+   besar supaya tetap mengisi area saat bergeser, tidak meninggalkan
+   celah kosong di tepi section.
+   ============================================================ */
+.parallax-layer{
+  position:absolute;pointer-events:none;z-index:0;
+  will-change:transform;
+}
+.parallax-orb{
+  border-radius:50%;
+  filter:blur(40px);
+  opacity:.5;
+}
+/* Orb pada latar terang (Hero, section-light, section-soft) pakai warna biru
+   tema yang sudah ada, redup supaya tidak mengganggu keterbacaan teks. */
+.section-light .parallax-orb, .section-soft .parallax-orb, .hero .parallax-orb{
+  background:radial-gradient(circle, rgba(63,127,214,.16) 0%, transparent 70%);
+}
+/* Orb pada latar gelap (section-dark) pakai warna terang supaya tetap
+   terlihat sebagai elemen dekoratif, bukan menyatu hilang ke background. */
+.section-dark .parallax-orb{
+  background:radial-gradient(circle, rgba(125,211,252,.14) 0%, transparent 70%);
+}
+.parallax-line{
+  background:repeating-linear-gradient(135deg, rgba(63,127,214,.06) 0 1px, transparent 1px 26px);
+  opacity:.6;
+}
+.section-dark .parallax-line{
+  background:repeating-linear-gradient(135deg, rgba(255,255,255,.05) 0 1px, transparent 1px 26px);
+}
+/* Konten section harus di atas layer parallax (z-index lebih tinggi) -
+   .wrap sudah position:relative secara default dari styling lain, di sini
+   dipastikan eksplisit supaya urutan tumpukan selalu benar walau CSS lain
+   berubah di masa depan. */
+.section > .wrap, .hero > .wrap{position:relative;z-index:1;}
+
+@media(prefers-reduced-motion:reduce){
+  .parallax-layer{transform:none !important;}
+}
 
 .about-grid{display:grid;gap:44px;margin-top:46px;}
 @media(min-width:880px){.about-grid{grid-template-columns:1.1fr .9fr;align-items:start;}}
