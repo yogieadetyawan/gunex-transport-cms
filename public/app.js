@@ -9,8 +9,46 @@
       .replace(/>/g, '&gt;');
   }
 
+  // Memecah teks jadi <span> per kata, masing-masing diberi --i (index urutan)
+  // sebagai CSS custom property - dipakai untuk animasi reveal BERTAHAP
+  // (stagger) saat halaman dimuat, teknik umum di situs studio kreatif:
+  // kata demi kata muncul berurutan, bukan judul langsung tampil sekaligus.
+  // baseIndex memungkinkan kelanjutan urutan dari teks sebelumnya (mis. saat
+  // headline & headlineAccent perlu di-reveal sebagai satu rangkaian kata
+  // yang sama, bukan dua animasi terpisah yang mulai dari nol lagi).
+  // Di mode pratinjau admin (iframe), kelas 'no-anim' DITAMBAHKAN secara
+  // eksplisit supaya kata langsung tampil penuh tanpa animasi apapun -
+  // PENTING karena render() dipanggil ULANG setiap admin mengetik satu
+  // huruf di editor (lewat postMessage GUNEX_PREVIEW_UPDATE), dan tanpa
+  // pengecekan eksplisit ini, perilaku "tidak animasi ulang" hanya
+  // kebetulan dari timing animation-delay CSS global, bukan terjamin by
+  // design - rawan berubah/pecah jika struktur halaman berubah di masa
+  // depan (mis. ada elemen lain yang reset animation timeline).
+  function splitWordsForReveal(str, baseIndex) {
+    baseIndex = baseIndex || 0;
+    const inIframe = window.self !== window.top;
+    const words = esc(str).split(' ').filter(w => w.length > 0);
+    return words.map((w, i) => `<span class="word-reveal${inIframe ? ' no-anim' : ''}" style="--i:${baseIndex + i}">${w}</span>`).join(' ');
+  }
+
   function nl2p(str) {
     return esc(str);
+  }
+
+  // Mengekstrak nomor dari kicker section (mis. "KM 03 — Armada Kami" -> "03")
+  // untuk dirender sebagai ANGKA DEKORATIF BESAR di pojok section - teknik
+  // umum dipakai situs studio kreatif (section bernomor "01", "02"... jadi
+  // elemen tipografi visual sendiri, bukan cuma teks kecil di km-tag).
+  // Mengembalikan string kosong jika kicker tidak mengikuti pola "KM XX",
+  // supaya tidak menampilkan angka yang salah/tidak relevan.
+  function sectionNumberFromKicker(kicker) {
+    const match = String(kicker || '').match(/KM\s*(\d+\w*)/i);
+    return match ? match[1] : '';
+  }
+  function sectionNumberDecor(kicker) {
+    const num = sectionNumberFromKicker(kicker);
+    if (!num) return '';
+    return `<div class="section-number-decor" aria-hidden="true">${esc(num)}</div>`;
   }
 
   const FLEET_ICONS = [
@@ -40,12 +78,18 @@
     const stats = (hero.stats || []).map(s => `
       <div class="stat"><div class="num">${esc(s.num)}</div><div class="label">${esc(s.label)}</div></div>
     `).join('');
+    // Reveal bertahap per kata: headline & headlineAccent diperlakukan
+    // sebagai SATU rangkaian kata berurutan (baseIndex melanjutkan dari
+    // jumlah kata headline), supaya animasi "kata muncul satu-satu" terasa
+    // mengalir utuh dari awal kalimat sampai bagian highlight birunya,
+    // bukan dua animasi terpisah yang masing-masing mulai dari kata ke-0.
+    const headlineWordCount = esc(hero.headline).split(' ').filter(w => w.length > 0).length;
     return `
     <section class="hero" id="km00">
       <div class="wrap hero-grid">
         <div>
-          <div class="eyebrow">${esc(hero.eyebrow)}</div>
-          <h1>${esc(hero.headline)} <span>${esc(hero.headlineAccent)}</span></h1>
+          <div class="eyebrow word-reveal-wrap">${splitWordsForReveal(hero.eyebrow)}</div>
+          <h1 class="word-reveal-wrap">${splitWordsForReveal(hero.headline)} <span class="hl-accent">${splitWordsForReveal(hero.headlineAccent, headlineWordCount)}</span></h1>
           <p class="lead">${esc(hero.lead)}</p>
           <div class="hero-cta">
             <a href="#kontak" class="btn btn-primary">${esc(hero.ctaPrimary)}</a>
@@ -345,6 +389,7 @@
 
     initScrollAnimations();
     initGallery();
+    addSectionNumberDecor();
     addParallaxLayers();
     initParallax();
   }
@@ -401,6 +446,23 @@
   // fungsi renderXxx() yang berbeda (rawan lupa/tidak konsisten). Dipanggil
   // ulang setiap render() selesai, karena app.innerHTML dibangun dari nol -
   // section lama beserta layer lamanya sudah tidak ada lagi di DOM.
+  // ---------- Nomor section besar (dekoratif) ----------
+  // Menyisipkan angka besar (diambil dari teks .km-tag yang sudah ada,
+  // mis. "KM 03 — Armada Kami" -> "03") sebagai elemen tipografi dekoratif
+  // di pojok tiap section - dipanggil ulang setiap render() selesai,
+  // konsisten dengan pola addParallaxLayers() di bawah (satu titik sentral,
+  // bukan markup manual di 8 fungsi renderXxx() yang berbeda).
+  function addSectionNumberDecor() {
+    const sections = document.querySelectorAll('.section, .hero');
+    sections.forEach(section => {
+      const tag = section.querySelector('.km-tag');
+      if (!tag) return;
+      const decor = sectionNumberDecor(tag.textContent);
+      if (!decor) return;
+      section.insertAdjacentHTML('beforeend', decor);
+    });
+  }
+
   function addParallaxLayers() {
     const sections = document.querySelectorAll('.hero, .section');
     sections.forEach((section, i) => {
