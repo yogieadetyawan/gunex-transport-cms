@@ -29,7 +29,10 @@
     `<svg class="svc-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 22s8-4.5 8-11V5l-8-3-8 3v6c0 6.5 8 11 8 11z"/></svg>`
   ];
 
-  const CLIENT_ICON = `<svg class="ci" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M7 9h10M7 13h10M7 17h6"/></svg>`;
+  // Ikon DEFAULT untuk klien yang belum mengunggah logo perusahaannya -
+  // siluet bangunan pabrik dengan cerobong asap (representasi umum untuk
+  // "perusahaan/industri"), BUKAN ikon dokumen seperti sebelumnya.
+  const CLIENT_DEFAULT_ICON = `<svg class="ci" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21V11l5 3v-3l5 3V8l5 3v10z"/><path d="M16 8V4M16 4h2v3"/><path d="M3 21h18"/></svg>`;
   const PIN_SVG = `<svg class="pin-ic" viewBox="0 0 24 24"><path d="M12 23s8-8.1 8-13.3A8 8 0 1 0 4 9.7C4 14.9 12 23 12 23z" fill="#1d3d87" stroke="#fff" stroke-width="1.5"/><circle cx="12" cy="9.4" r="3" fill="#fff"/></svg>`;
   const PIN_OUTLINE = `<svg class="pin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 21s7-7.2 7-12a7 7 0 1 0-14 0c0 4.8 7 12 7 12z"/><circle cx="12" cy="9" r="2.4"/></svg>`;
 
@@ -207,9 +210,18 @@
   }
 
   function renderClients(clients) {
-    const items = (clients.items || []).map(name => `
-      <div class="client-card">${CLIENT_ICON}<span>${esc(name)}</span></div>
-    `).join('');
+    const items = (clients.items || []).map(item => {
+      // Kompatibilitas data lama: items dulunya array of string (nama saja),
+      // sekarang array of object {name, logoUrl}. Kedua bentuk ditangani di
+      // sini supaya konten yang tersimpan SEBELUM fitur logo ditambahkan
+      // tetap tampil benar tanpa perlu migrasi manual oleh admin.
+      const name = typeof item === 'string' ? item : (item.name || '');
+      const logoUrl = typeof item === 'string' ? '' : (item.logoUrl || '');
+      const visual = logoUrl
+        ? `<img class="ci-logo" src="${esc(logoUrl)}" alt="">`
+        : CLIENT_DEFAULT_ICON;
+      return `<div class="client-card">${visual}<span>${esc(name)}</span></div>`;
+    }).join('');
     return `
     <section class="section section-light" id="klien">
       <div class="wrap">
@@ -447,13 +459,48 @@
     if (slides.length <= 1) return; // statis, tidak perlu logic apapun
 
     let current = 0;
-    function goTo(idx) {
+    let slideCleanupTimer = null;
+    // goTo() menambahkan kelas arah (slide-in-left/slide-in-right) pada slide
+    // yang BARU AKTIF, dan slide-out-left/slide-out-right pada slide yang
+    // baru saja DITINGGALKAN - sehingga transisi terasa seperti bergeser ke
+    // arah yang sesuai (mengikuti tombol prev/next yang ditekan), bukan
+    // sekadar fade datar di tempat. PENTING: kelas slide-in-* HARUS dilepas
+    // dari slide aktif setelah transisi selesai (lewat setTimeout di bawah),
+    // karena .slide-in-right{transform:translateX(28px)} punya spesifisitas
+    // CSS yang SAMA dengan .active{transform:translateX(0)} - tanpa dilepas,
+    // urutan deklarasi di file CSS yang menentukan pemenangnya, dan transform
+    // slide jadi tertahan permanen di posisi pergeseran awal (bug nyata yang
+    // sempat lolos sebelum ditemukan lewat pemeriksaan computed style).
+    function goTo(idx, direction) {
+      const prevIdx = current;
       current = (idx + slides.length) % slides.length;
-      slides.forEach((s, i) => s.classList.toggle('active', i === current));
+      if (prevIdx === current) return;
+      direction = direction || (current > prevIdx ? 'next' : 'prev');
+
+      const outgoing = slides[prevIdx];
+      const incoming = slides[current];
+      clearTimeout(slideCleanupTimer);
+      slides.forEach(s => s.classList.remove('slide-in-left', 'slide-in-right', 'slide-out-left', 'slide-out-right'));
+
+      incoming.classList.add('active', direction === 'next' ? 'slide-in-right' : 'slide-in-left');
+      outgoing.classList.add(direction === 'next' ? 'slide-out-left' : 'slide-out-right');
+      // Beri jeda satu frame sebelum melepas 'active' dari slide lama, supaya
+      // browser sempat mendaftarkan kelas slide-out sebelum opacity berubah -
+      // tanpa ini transisi keluarnya langsung terpotong tanpa animasi.
+      requestAnimationFrame(() => { outgoing.classList.remove('active'); });
+
+      // Setelah durasi transisi CSS selesai (.55s, beri sedikit margin jadi
+      // 600ms), lepas kelas slide-in-* dari slide yang sekarang aktif supaya
+      // hanya .active{transform:translateX(0)} yang berlaku - slide kembali
+      // diam tepat di tengah, siap untuk transisi berikutnya kapan pun.
+      slideCleanupTimer = setTimeout(() => {
+        incoming.classList.remove('slide-in-left', 'slide-in-right');
+      }, 600);
+
       dots.forEach((d, i) => d.classList.toggle('active', i === current));
     }
-    function next() { goTo(current + 1); }
-    function prev() { goTo(current - 1); }
+    function next() { goTo(current + 1, 'next'); }
+    function prev() { goTo(current - 1, 'prev'); }
 
     if (prevBtn) prevBtn.addEventListener('click', () => { prev(); restartAutoplay(); });
     if (nextBtn) nextBtn.addEventListener('click', () => { next(); restartAutoplay(); });

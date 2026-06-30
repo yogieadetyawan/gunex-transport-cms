@@ -208,13 +208,13 @@ const EMBEDDED_DEFAULT_CONTENT = {
     "headline": "Dipercaya oleh Perusahaan yang Bergerak Cepat",
     "lede": "Kami mengukur keberhasilan bukan dari jumlah klien, tetapi dari lamanya mereka tetap bersama kami. Berikut perusahaan yang menggunakan jasa distribusi Gunex Transport secara berkelanjutan.",
     "items": [
-      "PT. Satyamitra Kemas Lestari Tbk",
-      "PT. Purbayasa Putra Perkasa",
-      "PT. Bilca Markin Jaya Makmur",
-      "PT. Dwi Global Megabox",
-      "JNT Cargo Express",
-      "PT. Alpha Cikupa Makmur",
-      "PT. Gelota Sentral Jaya"
+      { "name": "PT. Satyamitra Kemas Lestari Tbk", "logoUrl": "" },
+      { "name": "PT. Purbayasa Putra Perkasa", "logoUrl": "" },
+      { "name": "PT. Bilca Markin Jaya Makmur", "logoUrl": "" },
+      { "name": "PT. Dwi Global Megabox", "logoUrl": "" },
+      { "name": "JNT Cargo Express", "logoUrl": "" },
+      { "name": "PT. Alpha Cikupa Makmur", "logoUrl": "" },
+      { "name": "PT. Gelota Sentral Jaya", "logoUrl": "" }
     ]
   },
   "contact": {

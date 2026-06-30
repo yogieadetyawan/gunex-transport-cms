@@ -514,14 +514,66 @@
   function renderClientsList() {
     const wrap = $('#rep_clients');
     if (!wrap) return;
-    wrap.innerHTML = content.clients.items.map((name, i) => `
-      <div class="simple-list-row">
-        <input value="${escAttr(name)}" data-i="${i}">
-        <button class="btn-remove" data-i="${i}">✕</button>
+    // Kompatibilitas data lama: items dulunya array of string. Dinormalisasi
+    // di sini (sekali saat render, BUKAN mengubah array asli secara diam-diam
+    // di luar alur markDirty) supaya kode selanjutnya selalu bisa berasumsi
+    // bentuknya {name, logoUrl}.
+    content.clients.items = content.clients.items.map(item =>
+      typeof item === 'string' ? { name: item, logoUrl: '' } : item
+    );
+    wrap.innerHTML = content.clients.items.map((item, i) => `
+      <div class="client-admin-row" data-i="${i}">
+        <div class="client-admin-logo" id="clientLogo_${i}">
+          ${item.logoUrl ? `<img src="${escAttr(item.logoUrl)}" alt="">` : `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21V11l5 3v-3l5 3V8l5 3v10z"/><path d="M16 8V4M16 4h2v3"/><path d="M3 21h18"/></svg>`}
+        </div>
+        <div class="client-admin-fields">
+          <input value="${escAttr(item.name)}" data-i="${i}" placeholder="Nama Perusahaan">
+          <label class="client-admin-upload">
+            ${item.logoUrl ? 'Ganti Logo' : 'Unggah Logo (opsional)'}
+            <input type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml" data-logo-i="${i}" style="display:none;">
+          </label>
+        </div>
+        <button class="btn-remove" data-i="${i}" title="Hapus klien ini">✕</button>
       </div>`).join('') + addCardBtn('Tambah Klien');
-    $all('input[data-i]', wrap).forEach(el => el.oninput = () => { content.clients.items[+el.dataset.i] = el.value; markDirty(); });
-    $all('.btn-remove', wrap).forEach(btn => btn.onclick = () => { content.clients.items.splice(+btn.dataset.i, 1); renderClientsList(); markDirty(); });
-    $('.btn-add-card', wrap).onclick = () => { content.clients.items.push('Nama Perusahaan Baru'); renderClientsList(); markDirty(); };
+
+    $all('input[data-i]:not([type=file])', wrap).forEach(el => el.oninput = () => {
+      content.clients.items[+el.dataset.i].name = el.value; markDirty();
+    });
+    $all('.btn-remove', wrap).forEach(btn => btn.onclick = () => {
+      content.clients.items.splice(+btn.dataset.i, 1); renderClientsList(); markDirty();
+    });
+    $('.btn-add-card', wrap).onclick = () => {
+      content.clients.items.push({ name: 'Nama Perusahaan Baru', logoUrl: '' });
+      renderClientsList(); markDirty();
+    };
+    $all('input[data-logo-i]', wrap).forEach(fileInput => {
+      fileInput.addEventListener('change', async () => {
+        const i = +fileInput.dataset.logoI;
+        const file = fileInput.files[0];
+        if (!file) return;
+        const logoBox = document.getElementById('clientLogo_' + i);
+        const prevHtml = logoBox.innerHTML;
+        logoBox.innerHTML = `<span class="client-admin-uploading">...</span>`;
+        try {
+          const formData = new FormData();
+          formData.append('image', file);
+          const res = await fetch('/api/upload', { method: 'POST', body: formData });
+          const data = await res.json();
+          if (data.ok) {
+            content.clients.items[i].logoUrl = data.url;
+            markDirty();
+            renderClientsList();
+          } else {
+            logoBox.innerHTML = prevHtml;
+            alert(data.error || 'Gagal mengunggah logo.');
+          }
+        } catch (e) {
+          logoBox.innerHTML = prevHtml;
+          alert('Tidak dapat terhubung ke server.');
+        }
+        fileInput.value = '';
+      });
+    });
   }
 
   // ---------- Save / Reset ----------

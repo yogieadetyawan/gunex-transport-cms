@@ -153,10 +153,39 @@ h2.headline{font-size:clamp(1.7rem,3.6vw,2.5rem);font-weight:700;line-height:1.1
   box-shadow:0 18px 50px rgba(20,40,90,.16);
   background:#0d1b3d;
 }
-.gallery-track{position:relative;width:100%;aspect-ratio:16/10;}
-.gallery-slide{position:absolute;inset:0;opacity:0;transition:opacity .5s ease;}
-.gallery-slide.active{opacity:1;}
+.gallery-track{position:relative;width:100%;aspect-ratio:16/10;overflow:hidden;}
+/* Slide dasar: fade + sedikit gerak transform, arah ditentukan oleh kelas
+   slide-in-left/slide-in-right yang ditambahkan JS sesuai tombol yang
+   ditekan (next -> masuk dari kanan, prev -> masuk dari kiri), supaya
+   transisi terasa "bergeser" alih-alih sekadar fade datar di tempat. */
+.gallery-slide{
+  position:absolute;inset:0;opacity:0;
+  transform:translateX(0);
+  transition:opacity .55s ease, transform .55s cubic-bezier(.25,.8,.3,1);
+  will-change:opacity, transform;
+}
+.gallery-slide.active{opacity:1;transform:translateX(0);z-index:2;}
+.gallery-slide.slide-in-right{transform:translateX(28px);}
+.gallery-slide.slide-in-left{transform:translateX(-28px);}
+.gallery-slide.slide-out-left{opacity:0;transform:translateX(-28px);z-index:1;}
+.gallery-slide.slide-out-right{opacity:0;transform:translateX(28px);z-index:1;}
 .gallery-slide img{width:100%;height:100%;object-fit:cover;display:block;}
+/* Ken Burns: zoom sangat lambat & halus HANYA pada slide yang sedang aktif,
+   memberi kesan foto "hidup" walau pengunjung sedang diam melihatnya -
+   durasi sengaja jauh lebih panjang (8.5s) daripada interval autoplay (6s)
+   supaya gerakannya nyaris tak terlihat sebagai "animasi", lebih terasa
+   seperti kualitas foto yang halus. Direset ke skala awal saat slide
+   tidak aktif lagi, supaya saat giliran tampil berikutnya zoom dimulai
+   dari awal lagi (bukan melompat dari skala besar sebelumnya). */
+.gallery-slide.active img{animation:galleryKenBurns 8.5s ease-out forwards;}
+@keyframes galleryKenBurns{
+  from{transform:scale(1);}
+  to{transform:scale(1.06);}
+}
+@media(prefers-reduced-motion:reduce){
+  .gallery-slide{transition:opacity .3s ease;transform:none !important;}
+  .gallery-slide.active img{animation:none;}
+}
 .gallery-nav{
   position:absolute;top:50%;transform:translateY(-50%);z-index:3;
   width:38px;height:38px;border-radius:50%;border:none;cursor:pointer;
@@ -211,6 +240,7 @@ h2.headline{font-size:clamp(1.7rem,3.6vw,2.5rem);font-weight:700;line-height:1.1
 .client-card{background:#fff;border:1px solid var(--line);border-radius:var(--radius);padding:20px 16px;text-align:center;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:108px;transition:border-color .2s, transform .2s, box-shadow .2s;}
 .client-card:hover{border-color:var(--blue);transform:translateY(-3px);box-shadow:0 10px 24px rgba(36,86,179,.12);}
 .client-card .ci{width:30px;height:30px;color:var(--blue);margin-bottom:10px;}
+.client-card .ci-logo{max-width:64px;max-height:36px;width:auto;height:auto;object-fit:contain;margin-bottom:10px;}
 .client-card span{font-size:.78rem;font-weight:600;line-height:1.35;color:var(--ink);}
 
 .contact-wrap{display:grid;gap:40px;margin-top:48px;}
