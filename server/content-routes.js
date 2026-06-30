@@ -37,7 +37,7 @@ function isPlainObject(val) {
 // Validasi struktur top-level konten: harus punya semua section yang dikenal,
 // dan tiap section harus berupa plain object. Ini mencegah penyimpanan struktur
 // rusak/parsial yang akan membuat halaman publik gagal render atau jadi kosong.
-const REQUIRED_SECTIONS = ['brand', 'hero', 'about', 'services', 'fleet', 'flow', 'coverage', 'clients', 'contact', 'footer'];
+const REQUIRED_SECTIONS = ['brand', 'hero', 'about', 'services', 'fleet', 'gallery', 'flow', 'coverage', 'clients', 'contact', 'footer'];
 function validateFullContent(incoming) {
   if (!isPlainObject(incoming)) return 'Data konten harus berupa objek, bukan ' + (Array.isArray(incoming) ? 'daftar/array' : typeof incoming) + '.';
   for (const key of REQUIRED_SECTIONS) {

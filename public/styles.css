@@ -81,24 +81,6 @@ nav a:hover{opacity:1;color:var(--blue);}
 
 .hero{background:linear-gradient(170deg,#ffffff 0%, var(--sky-soft) 60%, var(--sky) 100%);color:var(--ink);padding:140px 0 80px;position:relative;overflow:hidden;}
 .hero::before{content:'';position:absolute;inset:0;background-image:repeating-linear-gradient(90deg, transparent 0 78px, rgba(29,61,135,.04) 78px 79px),repeating-linear-gradient(0deg, transparent 0 78px, rgba(29,61,135,.04) 78px 79px);pointer-events:none;}
-
-/* Mode foto banner: gambar diisi penuh sebagai latar, lapisan gelap-transparan
-   di atasnya (::after, terpisah dari ::before grid pattern di atas supaya
-   tidak saling menimpa) untuk menjaga kontras teks tetap terbaca di atas
-   foto apapun yang diupload admin. Warna teks dialihkan ke putih HANYA pada
-   mode ini - di mode gradient biasa (tanpa banner), teks tetap gelap seperti
-   semula karena background-nya terang. */
-.hero.has-banner{background-size:cover;background-position:center;}
-.hero.has-banner::after{content:'';position:absolute;inset:0;background:linear-gradient(170deg, rgba(10,20,45,.82) 0%, rgba(10,20,45,.6) 55%, rgba(10,20,45,.78) 100%);pointer-events:none;}
-.hero.has-banner .eyebrow{color:#9cc2f5;}
-.hero.has-banner .eyebrow::before{background:#9cc2f5;}
-.hero.has-banner h1{color:#fff;}
-.hero.has-banner h1 span{color:#7dd3fc;}
-.hero.has-banner p.lead{color:rgba(255,255,255,.88);}
-.hero.has-banner .stat{border-top-color:#7dd3fc;}
-.hero.has-banner .stat .num{color:#fff;}
-.hero.has-banner .stat .label{color:rgba(255,255,255,.75);}
-
 .hero-grid{position:relative;z-index:2;display:grid;gap:34px;}
 .hero .eyebrow{font-size:.78rem;letter-spacing:.22em;text-transform:uppercase;color:var(--blue);font-weight:600;margin-bottom:18px;display:flex;align-items:center;gap:10px;}
 .hero .eyebrow::before{content:'';width:30px;height:2px;background:var(--blue);}
@@ -158,6 +140,41 @@ h2.headline{font-size:clamp(1.7rem,3.6vw,2.5rem);font-weight:700;line-height:1.1
 .fleet-card .tag{display:inline-block;margin-top:8px;font-family:'JetBrains Mono',monospace;font-size:.72rem;color:#fff;border:1px solid var(--blue-bright);background:rgba(63,127,214,.25);padding:3px 9px;border-radius:20px;}
 .fleet-total{margin-top:34px;text-align:center;font-family:'JetBrains Mono',monospace;color:#c5d8f2;font-size:.85rem;}
 .fleet-total b{color:#fff;font-size:1.3rem;}
+
+/* ============================================================
+   GALERI ARMADA — slideshow ukuran PROPORSIONAL (dibatasi max-width &
+   aspect-ratio tetap), SENGAJA TIDAK full-width/full-viewport seperti
+   hero banner pada umumnya - cukup sebagai galeri dokumentasi yang pas
+   dilihat tanpa mendominasi seluruh layar.
+   ============================================================ */
+.gallery-frame{
+  position:relative;margin:0 auto;max-width:760px;
+  border-radius:var(--radius);overflow:hidden;
+  box-shadow:0 18px 50px rgba(20,40,90,.16);
+  background:#0d1b3d;
+}
+.gallery-track{position:relative;width:100%;aspect-ratio:16/10;}
+.gallery-slide{position:absolute;inset:0;opacity:0;transition:opacity .5s ease;}
+.gallery-slide.active{opacity:1;}
+.gallery-slide img{width:100%;height:100%;object-fit:cover;display:block;}
+.gallery-nav{
+  position:absolute;top:50%;transform:translateY(-50%);z-index:3;
+  width:38px;height:38px;border-radius:50%;border:none;cursor:pointer;
+  background:rgba(10,20,45,.55);color:#fff;display:flex;align-items:center;justify-content:center;
+  transition:background .2s;
+}
+.gallery-nav:hover{background:rgba(10,20,45,.8);}
+.gallery-nav svg{width:18px;height:18px;}
+.gallery-nav.prev{left:14px;}
+.gallery-nav.next{right:14px;}
+.gallery-dots{position:absolute;bottom:14px;left:0;right:0;z-index:3;display:flex;justify-content:center;gap:7px;}
+.gallery-dot{width:8px;height:8px;border-radius:50%;border:none;cursor:pointer;background:rgba(255,255,255,.45);transition:background .2s, transform .2s;padding:0;}
+.gallery-dot.active{background:#fff;transform:scale(1.25);}
+@media(max-width:680px){
+  .gallery-frame{max-width:100%;border-radius:10px;}
+  .gallery-track{aspect-ratio:4/3;}
+  .gallery-nav{width:32px;height:32px;}
+}
 
 .flow{margin-top:54px;position:relative;}
 .flow-line{position:absolute;left:19px;top:8px;bottom:8px;width:2px;background:repeating-linear-gradient(to bottom, var(--blue) 0 10px, transparent 10px 20px);}

@@ -9,20 +9,6 @@
       .replace(/>/g, '&gt;');
   }
 
-  // Escaping khusus untuk nilai yang disisipkan ke dalam ATRIBUT HTML (mis.
-  // style="background-image:url('...')") - esc() biasa TIDAK menutup celah
-  // tanda kutip, yang berisiko merusak/membobol atribut kalau nilainya
-  // (misalnya URL banner) sampai mengandung karakter kutip.
-  function escAttr(str) {
-    if (str === undefined || str === null) return '';
-    return String(str)
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;')
-      .replace(/'/g, '&#39;');
-  }
-
   function nl2p(str) {
     return esc(str);
   }
@@ -51,10 +37,8 @@
     const stats = (hero.stats || []).map(s => `
       <div class="stat"><div class="num">${esc(s.num)}</div><div class="label">${esc(s.label)}</div></div>
     `).join('');
-    const hasBanner = !!hero.bannerUrl;
-    const heroStyle = hasBanner ? ` style="background-image:url('${escAttr(hero.bannerUrl)}')"` : '';
     return `
-    <section class="hero${hasBanner ? ' has-banner' : ''}" id="km00"${heroStyle}>
+    <section class="hero" id="km00">
       <div class="wrap hero-grid">
         <div>
           <div class="eyebrow">${esc(hero.eyebrow)}</div>
@@ -130,6 +114,42 @@
         <p class="lede">${esc(fleet.lede)}</p>
         <div class="fleet-grid reveal">${items}</div>
         <div class="fleet-total">TOTAL ARMADA OPERASIONAL&nbsp; <b>${esc(fleet.totalUnit)}</b>&nbsp; UNIT KENDARAAN</div>
+      </div>
+    </section>`;
+  }
+
+  function renderGallery(gallery) {
+    const images = gallery.images || [];
+    if (images.length === 0) return ''; // tidak render section sama sekali jika belum ada foto diunggah
+    const slides = images.map((url, i) => `
+      <div class="gallery-slide${i === 0 ? ' active' : ''}" data-slide="${i}">
+        <img src="${esc(url)}" alt="Dokumentasi armada ${i + 1}" loading="lazy">
+      </div>
+    `).join('');
+    const dots = images.map((_, i) => `
+      <button type="button" class="gallery-dot${i === 0 ? ' active' : ''}" data-dot="${i}" aria-label="Foto ke-${i + 1}"></button>
+    `).join('');
+    // Tombol navigasi & dot HANYA ditampilkan jika lebih dari 1 foto - dengan
+    // 1 foto saja, galeri cukup tampil statis tanpa kontrol slideshow apapun.
+    const controls = images.length > 1 ? `
+      <button type="button" class="gallery-nav prev" aria-label="Foto sebelumnya">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 18l-6-6 6-6"/></svg>
+      </button>
+      <button type="button" class="gallery-nav next" aria-label="Foto berikutnya">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M9 18l6-6-6-6"/></svg>
+      </button>
+      <div class="gallery-dots">${dots}</div>
+    ` : '';
+    return `
+    <section class="section section-soft" id="galeri">
+      <div class="wrap">
+        <div class="km-tag">${esc(gallery.kicker)}</div>
+        <h2 class="headline">${esc(gallery.headline)}</h2>
+        <p class="lede">${esc(gallery.lede)}</p>
+        <div class="gallery-frame reveal">
+          <div class="gallery-track">${slides}</div>
+          ${controls}
+        </div>
       </div>
     </section>`;
   }
@@ -251,6 +271,7 @@
       renderAbout(content.about),
       renderServices(content.services),
       renderFleet(content.fleet),
+      renderGallery(content.gallery || { images: [] }),
       renderFlow(content.flow),
       renderCoverage(content.coverage),
       renderClients(content.clients),
@@ -311,6 +332,7 @@
     }
 
     initScrollAnimations();
+    initGallery();
   }
 
   // ---------- Boot loader: layar pembuka singkat saat website pertama dibuka ----------
@@ -407,6 +429,59 @@
     });
   }
   initMobileNav();
+
+  // ---------- Galeri/slideshow Armada: navigasi panah, dot, auto-play, swipe ----------
+  // Dipanggil ulang setiap kali render() selesai (lihat init()), karena
+  // app.innerHTML dibangun ulang dari nol setiap render - elemen galeri lama
+  // (jika ada) sudah tidak ada lagi di DOM, sehingga listener juga harus
+  // dipasang ulang dari awal. Tidak menimbulkan listener menumpuk karena
+  // elemen lamanya sudah benar-benar dibuang oleh innerHTML sebelumnya.
+  let galleryAutoplayTimer = null;
+  function initGallery() {
+    const frame = document.querySelector('.gallery-frame');
+    if (!frame) return;
+    const slides = Array.from(frame.querySelectorAll('.gallery-slide'));
+    const dots = Array.from(frame.querySelectorAll('.gallery-dot'));
+    const prevBtn = frame.querySelector('.gallery-nav.prev');
+    const nextBtn = frame.querySelector('.gallery-nav.next');
+    if (slides.length <= 1) return; // statis, tidak perlu logic apapun
+
+    let current = 0;
+    function goTo(idx) {
+      current = (idx + slides.length) % slides.length;
+      slides.forEach((s, i) => s.classList.toggle('active', i === current));
+      dots.forEach((d, i) => d.classList.toggle('active', i === current));
+    }
+    function next() { goTo(current + 1); }
+    function prev() { goTo(current - 1); }
+
+    if (prevBtn) prevBtn.addEventListener('click', () => { prev(); restartAutoplay(); });
+    if (nextBtn) nextBtn.addEventListener('click', () => { next(); restartAutoplay(); });
+    dots.forEach(d => d.addEventListener('click', () => { goTo(parseInt(d.dataset.dot, 10)); restartAutoplay(); }));
+
+    // Dukungan swipe geser jari di perangkat sentuh (mobile/tablet).
+    let touchStartX = null;
+    frame.addEventListener('touchstart', (e) => { touchStartX = e.touches[0].clientX; }, { passive: true });
+    frame.addEventListener('touchend', (e) => {
+      if (touchStartX === null) return;
+      const dx = e.changedTouches[0].clientX - touchStartX;
+      if (Math.abs(dx) > 40) { dx > 0 ? prev() : next(); restartAutoplay(); }
+      touchStartX = null;
+    }, { passive: true });
+
+    // Auto-play pelan (6 detik/slide), berhenti sementara saat pointer di atas
+    // galeri supaya tidak berpindah sendiri ketika pengunjung sedang melihat
+    // detail satu foto, dan dihormati prefers-reduced-motion.
+    const reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    function restartAutoplay() {
+      clearInterval(galleryAutoplayTimer);
+      if (reduceMotion) return;
+      galleryAutoplayTimer = setInterval(next, 6000);
+    }
+    frame.addEventListener('mouseenter', () => clearInterval(galleryAutoplayTimer));
+    frame.addEventListener('mouseleave', restartAutoplay);
+    restartAutoplay();
+  }
 
   // ---------- Mode preview: dengarkan pesan dari admin panel ----------
   // Jika halaman ini dibuka di dalam iframe oleh /admin, admin.js akan mengirim

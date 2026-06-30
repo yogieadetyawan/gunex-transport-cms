@@ -61,7 +61,8 @@ function readContent() {
   ensureContentFile();
   try {
     const raw = fs.readFileSync(CONTENT_FILE, 'utf-8');
-    return JSON.parse(raw);
+    const parsed = JSON.parse(raw);
+    return fillMissingSections(parsed);
   } catch (e) {
     // File ada tapi isinya korup/tidak valid (misal proses lain menulis setengah jalan,
     // atau penyimpanan diganggu di tengah operasi). Daripada membuat seluruh halaman
@@ -76,6 +77,36 @@ function readContent() {
     }
     return JSON.parse(raw);
   }
+}
+
+// Melengkapi section yang HILANG TOTAL dari konten yang sudah tersimpan (misal
+// 'gallery' belum ada sama sekali pada content.json yang dibuat sebelum fitur
+// itu ditambahkan), dengan mengambil section tersebut dari konten default.
+// Ini PENTING agar PUT /api/content (dipakai tombol "Simpan Perubahan", yang
+// mengirim ULANG SELURUH content yang ada di memori browser admin) tidak
+// ditolak validasi REQUIRED_SECTIONS hanya karena admin membuka editor di
+// sesi lama yang content-nya di-load SEBELUM section baru ditambahkan ke
+// aplikasi. Section yang SUDAH ADA (walau isinya beda dari default) TIDAK
+// disentuh sama sekali - ini murni mengisi yang hilang, bukan menimpa.
+function fillMissingSections(content) {
+  if (!content || typeof content !== 'object') return content;
+  let defaultContent;
+  try {
+    defaultContent = JSON.parse(getDefaultContentRaw());
+  } catch (e) {
+    return content; // default pun gagal dibaca - serahkan apa adanya, jangan crash
+  }
+  let changed = false;
+  for (const key of Object.keys(defaultContent)) {
+    if (!(key in content)) {
+      content[key] = defaultContent[key];
+      changed = true;
+    }
+  }
+  if (changed) {
+    try { writeContent(content); } catch (e) { /* gagal tulis bukan hal fatal - tetap kembalikan hasil lengkap di memori */ }
+  }
+  return content;
 }
 
 function writeContent(obj) {

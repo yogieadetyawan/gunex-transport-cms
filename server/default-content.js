@@ -17,7 +17,6 @@ const EMBEDDED_DEFAULT_CONTENT = {
     "lead": "Kami menjalankan rantai distribusi B2B untuk perusahaan manufaktur, distribusi, dan ritel skala besar — dari gudang hingga titik penerimaan, dengan armada terkelola dan jadwal yang dapat diandalkan setiap hari.",
     "ctaPrimary": "Ajukan Kerja Sama",
     "ctaSecondary": "Lihat Armada Kami",
-    "bannerUrl": "",
     "stats": [
       {
         "num": "50+",
@@ -139,6 +138,12 @@ const EMBEDDED_DEFAULT_CONTENT = {
       }
     ],
     "totalUnit": "50"
+  },
+  "gallery": {
+    "kicker": "KM 03A — Galeri Armada",
+    "headline": "Dokumentasi Armada Kami di Lapangan",
+    "lede": "Sebagian dokumentasi unit dan aktivitas operasional armada Gunex Transport dalam menjalankan pengiriman sehari-hari.",
+    "images": []
   },
   "flow": {
     "kicker": "KM 04 — Alur Kerja Sama",

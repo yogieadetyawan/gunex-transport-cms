@@ -99,21 +99,6 @@ input,textarea,select{font-family:inherit;}
 .simple-field .changed-badge{display:none;font-size:.72rem;color:#b07700;font-weight:700;margin-left:8px;}
 .simple-field.changed .changed-badge{display:inline;}
 
-.image-upload-box{border:1.5px dashed var(--line);border-radius:var(--radius);padding:16px;background:var(--bg);}
-.image-upload-preview{
-  width:100%;height:160px;border-radius:8px;background:#fff;border:1px solid var(--line);
-  display:flex;align-items:center;justify-content:center;overflow:hidden;margin-bottom:12px;
-}
-.image-upload-preview img{width:100%;height:100%;object-fit:cover;}
-.image-upload-empty{font-size:.82rem;color:var(--mute);}
-.image-upload-actions{display:flex;gap:10px;}
-.image-upload-actions .btn-top{
-  background:var(--blue);color:#fff;border:1px solid var(--blue);
-  font-size:.82rem;padding:9px 16px;
-}
-.image-upload-actions .btn-top:hover{background:var(--blue-deep);}
-.image-upload-status{font-size:.78rem;margin-top:8px;min-height:16px;}
-
 .card-item{background:var(--bg);border:1.5px solid var(--line);border-radius:12px;padding:18px;margin-bottom:14px;}
 .card-item-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;}
 .card-item-head .num-badge{width:28px;height:28px;border-radius:50%;background:var(--blue);color:#fff;display:flex;align-items:center;justify-content:center;font-size:.78rem;font-weight:700;font-family:'JetBrains Mono',monospace;}
@@ -125,6 +110,23 @@ input,textarea,select{font-family:inherit;}
 
 .simple-list-row{display:flex;gap:10px;margin-bottom:10px;align-items:center;}
 .simple-list-row input{flex:1;}
+
+.gallery-admin-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:12px;}
+.gallery-admin-item{position:relative;aspect-ratio:4/3;border-radius:8px;overflow:hidden;border:1px solid var(--line);background:#fff;}
+.gallery-admin-item img{width:100%;height:100%;object-fit:cover;display:block;}
+.gallery-admin-remove{
+  position:absolute;top:6px;right:6px;width:24px;height:24px;border-radius:50%;
+  background:rgba(20,20,30,.65);color:#fff;border:none;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;font-size:13px;line-height:1;
+  transition:background .15s;
+}
+.gallery-admin-remove:hover{background:var(--danger);}
+/* .btn-top di luar topbar (latar gelap aslinya) perlu warna override supaya
+   tetap kontras dipakai di dalam form yang berlatar terang - tanpa ini,
+   teks putih default .btn-top akan nyaris tak terlihat di sini. */
+.gallery-admin-add.btn-top{background:var(--blue);color:#fff;border-color:var(--blue);}
+.gallery-admin-add.btn-top:hover{background:var(--blue-deep);}
+.image-upload-status{font-size:.78rem;margin-top:8px;min-height:16px;}
 
 .pos-hint{background:var(--sky-soft);border:1px solid var(--sky);border-radius:10px;padding:14px 16px;font-size:.85rem;color:var(--ink);line-height:1.6;margin-bottom:18px;}
 .pos-hint b{color:var(--blue-deep);}

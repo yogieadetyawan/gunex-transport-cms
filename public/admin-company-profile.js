@@ -115,6 +115,7 @@
     about: { title: 'Tentang Kami', desc: 'Cerita singkat tentang perusahaan dan data ringkas perusahaan.' },
     services: { title: 'Layanan', desc: 'Daftar jasa yang ditawarkan perusahaan Anda.' },
     fleet: { title: 'Armada / Kendaraan', desc: 'Jenis-jenis kendaraan yang dimiliki perusahaan.' },
+    gallery: { title: 'Galeri Armada', desc: 'Foto-foto dokumentasi armada yang tampil sebagai slideshow di bawah bagian Armada pada website.' },
     flow: { title: 'Cara Kerja Sama', desc: 'Langkah-langkah ketika ada klien baru yang ingin bekerja sama.' },
     coverage: { title: 'Wilayah Layanan', desc: 'Daerah yang dilayani, lengkap dengan titik lokasi di peta.' },
     clients: { title: 'Daftar Klien', desc: 'Nama-nama perusahaan yang menjadi pelanggan Anda.' },
@@ -149,76 +150,6 @@
     return html;
   }
 
-  // Field upload gambar generik: pratinjau gambar saat ini (atau placeholder
-  // kosong kalau belum diupload), tombol pilih file, dan tombol hapus yang
-  // hanya muncul kalau sudah ada gambar tersimpan. onChange dipanggil dengan
-  // URL baru (string) setelah upload berhasil, atau '' setelah dihapus.
-  function imageUploadField(label, currentUrl, onChange, opts) {
-    opts = opts || {};
-    const uid = 'img_' + Math.random().toString(36).slice(2, 9);
-    const help = opts.help ? `<div class="help">${opts.help}</div>` : '';
-    const hasImage = !!currentUrl;
-    const html = `
-      <div class="simple-field">
-        <label>${label}</label>
-        <div class="image-upload-box" id="${uid}_box">
-          <div class="image-upload-preview" id="${uid}_preview">
-            ${hasImage ? `<img src="${escAttr(currentUrl)}" alt="">` : `<span class="image-upload-empty">Belum ada gambar</span>`}
-          </div>
-          <div class="image-upload-actions">
-            <label class="btn-top" style="cursor:pointer;">
-              ${hasImage ? 'Ganti Gambar' : 'Unggah Gambar'}
-              <input type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml" id="${uid}_input" style="display:none;">
-            </label>
-            <button type="button" class="btn-top" id="${uid}_remove" style="${hasImage ? '' : 'display:none;'}background:#fdeceb;color:var(--danger);border-color:#f3c9c4;">Hapus</button>
-          </div>
-          <div class="image-upload-status" id="${uid}_status"></div>
-        </div>
-        ${help}
-      </div>`;
-    setTimeout(() => {
-      const fileInput = document.getElementById(uid + '_input');
-      const removeBtn = document.getElementById(uid + '_remove');
-      const statusEl = document.getElementById(uid + '_status');
-      const previewEl = document.getElementById(uid + '_preview');
-
-      fileInput.addEventListener('change', async () => {
-        const file = fileInput.files[0];
-        if (!file) return;
-        statusEl.textContent = 'Mengunggah...';
-        statusEl.style.color = 'var(--mute)';
-        try {
-          const formData = new FormData();
-          formData.append('image', file);
-          const res = await fetch('/api/upload', { method: 'POST', body: formData });
-          const data = await res.json();
-          if (data.ok) {
-            previewEl.innerHTML = `<img src="${escAttr(data.url)}" alt="">`;
-            removeBtn.style.display = '';
-            statusEl.textContent = 'Berhasil diunggah.';
-            statusEl.style.color = '#1e8e5a';
-            onChange(data.url);
-          } else {
-            statusEl.textContent = data.error || 'Gagal mengunggah gambar.';
-            statusEl.style.color = 'var(--danger)';
-          }
-        } catch (e) {
-          statusEl.textContent = 'Tidak dapat terhubung ke server.';
-          statusEl.style.color = 'var(--danger)';
-        }
-        fileInput.value = '';
-      });
-
-      removeBtn.addEventListener('click', () => {
-        previewEl.innerHTML = `<span class="image-upload-empty">Belum ada gambar</span>`;
-        removeBtn.style.display = 'none';
-        statusEl.textContent = '';
-        onChange('');
-      });
-    }, 0);
-    return html;
-  }
-
   function renderSection(key) {
     const pane = $('#editPane');
     if (key === 'account') {
@@ -237,7 +168,7 @@
 
     const renderers = {
       hero: renderHero, about: renderAbout, services: renderServices,
-      fleet: renderFleet, flow: renderFlow, coverage: renderCoverage,
+      fleet: renderFleet, gallery: renderGallery, flow: renderFlow, coverage: renderCoverage,
       clients: renderClients, contact: renderContact, footer: renderFooter
     };
     pane.innerHTML = paneHeader(key) + (renderers[key] ? renderers[key]() : '');
@@ -247,7 +178,6 @@
   function renderHero() {
     const h = content.hero;
     let html = '';
-    html += imageUploadField('Foto Banner (opsional)', h.bannerUrl, v => { h.bannerUrl = v; markDirty(); }, { help: 'Tampil sebagai latar di bagian paling atas website. Jika tidak diunggah, latar polos berwarna biru-putih tetap dipakai seperti biasa. Disarankan foto lanskap (lebih lebar daripada tinggi) agar tidak terlalu terpotong.' });
     html += simpleField('Kalimat kecil di atas judul', h.eyebrow, v => { h.eyebrow = v; markDirty(); });
     html += simpleField('Judul utama', h.headline, v => { h.headline = v; markDirty(); });
     html += simpleField('Lanjutan judul (warna terang)', h.headlineAccent, v => { h.headlineAccent = v; markDirty(); });
@@ -288,6 +218,70 @@
     html += simpleField('Jumlah total kendaraan', f.totalUnit, v => { f.totalUnit = v; markDirty(); }, { help: 'Angka ini ditampilkan besar di bagian bawah daftar armada.' });
     html += `<div id="rep_fleet"></div>`;
     return html;
+  }
+
+  function renderGallery() {
+    const g = content.gallery;
+    let html = '';
+    html += simpleField('Judul bagian', g.headline, v => { g.headline = v; markDirty(); });
+    html += simpleField('Kalimat pembuka', g.lede, v => { g.lede = v; markDirty(); }, { multiline: true, help: 'Tampil sebagai galeri slideshow di bawah bagian Armada. Jika tidak ada foto sama sekali, bagian ini otomatis tidak ditampilkan di website.' });
+    html += `<div class="simple-field"><label>Foto-foto Galeri</label></div>`;
+    html += `<div id="rep_gallery"></div>`;
+    return html;
+  }
+
+  // Daftar foto galeri: grid pratinjau dengan tombol hapus per-foto, dan satu
+  // tombol "Tambah Foto" di akhir yang langsung membuka file picker (berbeda
+  // dari renderClientsList yang menambah baris teks kosong dulu - di sini
+  // tidak ada gunanya menambah slot kosong tanpa gambar, jadi upload
+  // dilakukan SEKALIGUS dengan menambah itemnya).
+  function renderGalleryList() {
+    const wrap = $('#rep_gallery');
+    if (!wrap) return;
+    const items = content.gallery.images.map((url, i) => `
+      <div class="gallery-admin-item">
+        <img src="${escAttr(url)}" alt="">
+        <button type="button" class="gallery-admin-remove" data-i="${i}" title="Hapus foto ini">✕</button>
+      </div>`).join('');
+    wrap.innerHTML = `
+      <div class="gallery-admin-grid">${items}</div>
+      <label class="btn-top gallery-admin-add" style="cursor:pointer;display:inline-block;margin-top:12px;">
+        + Tambah Foto
+        <input type="file" accept="image/png,image/jpeg,image/webp" id="galleryAddInput" style="display:none;">
+      </label>
+      <div class="image-upload-status" id="galleryAddStatus"></div>
+    `;
+    $all('.gallery-admin-remove', wrap).forEach(btn => btn.onclick = () => {
+      content.gallery.images.splice(+btn.dataset.i, 1);
+      renderGalleryList();
+      markDirty();
+    });
+    const addInput = document.getElementById('galleryAddInput');
+    const addStatus = document.getElementById('galleryAddStatus');
+    addInput.addEventListener('change', async () => {
+      const file = addInput.files[0];
+      if (!file) return;
+      addStatus.textContent = 'Mengunggah...';
+      addStatus.style.color = 'var(--mute)';
+      try {
+        const formData = new FormData();
+        formData.append('image', file);
+        const res = await fetch('/api/upload', { method: 'POST', body: formData });
+        const data = await res.json();
+        if (data.ok) {
+          content.gallery.images.push(data.url);
+          renderGalleryList();
+          markDirty();
+        } else {
+          addStatus.textContent = data.error || 'Gagal mengunggah gambar.';
+          addStatus.style.color = 'var(--danger)';
+        }
+      } catch (e) {
+        addStatus.textContent = 'Tidak dapat terhubung ke server.';
+        addStatus.style.color = 'var(--danger)';
+      }
+      addInput.value = '';
+    });
   }
 
   function renderFlow() {
@@ -375,6 +369,7 @@
     if (section === 'about') { renderAboutParagraphs(); renderAboutProfile(); }
     if (section === 'services') renderServicesList();
     if (section === 'fleet') renderFleetList();
+    if (section === 'gallery') renderGalleryList();
     if (section === 'flow') renderFlowList();
     if (section === 'coverage') renderCoverageList();
     if (section === 'clients') renderClientsList();
